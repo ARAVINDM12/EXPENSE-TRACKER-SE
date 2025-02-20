@@ -127,7 +127,8 @@ class ExpenseTracker(BoxLayout):
         self.add_button.bind(on_press=self.add_expense)
         
         self.update_button = Button(text='Update', background_color=(1, 0.6, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
-        self.update_button.bind(on_press=self.update_expense)
+        self.update_button.bind(on_press=self.open_history_page)
+
 
         self.delete_button = Button(text='Delete', background_color=(1, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.delete_button.bind(on_press=self.open_history_page)  # Change function to open history
@@ -177,16 +178,38 @@ class ExpenseTracker(BoxLayout):
     def open_history_page(self, instance):
         history_screen = self.screen_manager.get_screen("history")
         history_screen.load_history()  
-        history_screen.delete_button.opacity = 1  # Make delete button visible
+
+        # Check if Update or Delete button was pressed
+        if instance == self.update_button:
+            history_screen.delete_button.text = "Update Selected"  # Change text
+            history_screen.delete_button.background_color = self.update_button.background_color  # Match update button color
+            history_screen.delete_button.unbind(on_press=self.delete_expense)  # Remove delete binding
+            history_screen.delete_button.bind(on_press=self.update_expense)  # Bind update function
+        else:
+            history_screen.delete_button.text = "Delete Selected"  # Default case
+            history_screen.delete_button.background_color = self.delete_button.background_color  # Match delete button color
+            history_screen.delete_button.unbind(on_press=self.update_expense)  # Remove update binding
+            history_screen.delete_button.bind(on_press=self.delete_expense)  # Bind delete function
+
+        history_screen.delete_button.opacity = 1  # Make button visible
         history_screen.delete_button.disabled = False
+
         self.screen_manager.current = "history"
 
 
 
+
+
     def update_expense(self, instance):
-        if not self.selected_expense_id:
-            return
+        # Force-load history if it is not already loaded
+        if not hasattr(self, 'history_loaded') or not self.history_loaded:
+            self.view_history()
         
+        # Ensure an expense is selected
+        if not hasattr(self, 'selected_expense_id') or self.selected_expense_id is None:
+            print("No expense selected for update.")
+            return
+
         date = self.date_spinner.text
         time = self.time_spinner.text
         category = self.category_spinner.text
@@ -194,13 +217,27 @@ class ExpenseTracker(BoxLayout):
         description = self.desc_input.text
 
         try:
+            amount = float(amount)  # Convert amount to float
+
+            # Update expense in the database
             cursor.execute("UPDATE expenses SET date=?, time=?, category=?, amount=?, description=? WHERE id=?",
-                           (date, time, category, float(amount), description, self.selected_expense_id))
+                        (date, time, category, amount, description, self.selected_expense_id))
             conn.commit()
+
             print("Expense updated successfully!")
+
+            # Refresh history immediately
+            self.view_history()
+
+            # Reset selection
             self.selected_expense_id = None
+
         except Exception as e:
             print("Error:", e)
+
+
+
+
 
     def delete_expense(self, instance):
         if not self.selected_expense_id:
@@ -220,6 +257,12 @@ class ExpenseTracker(BoxLayout):
         history_screen.delete_button.opacity = 0  # Hide delete button
         history_screen.delete_button.disabled = True
         self.screen_manager.current = "history"
+
+    def open_update_page(self, instance):
+        self.screen_manager.current = "history"  # Open history screen
+        history_screen = self.screen_manager.get_screen("history")
+        history_screen.set_update_mode(True)  # Enable update mode
+
 
 class HistoryScreen(Screen):
     def __init__(self, **kwargs):
@@ -276,6 +319,11 @@ class HistoryScreen(Screen):
         self.selected_button = instance
         self.selected_button.background_color = (1, 0, 0, 1)  # Highlight in red
 
+        # If in update mode, load expense into the main screen for editing
+        if hasattr(self, "update_mode") and self.update_mode:
+            self.load_expense_for_editing()
+
+
 
     def delete_selected_expense(self, instance):
         if not self.selected_expense_id:
@@ -292,9 +340,36 @@ class HistoryScreen(Screen):
 
         except Exception as e:
             print("Error:", e)
+    
+    def set_update_mode(self, update_mode):
+        self.update_mode = update_mode
+
 
     def go_back(self, instance):
         self.manager.current = "main"
+
+    def load_expense_for_editing(self):
+        if not self.selected_expense_id:
+            print("No expense selected!")
+            return
+
+        cursor.execute("SELECT date, time, category, amount, description FROM expenses WHERE id=?", (self.selected_expense_id,))
+        record = cursor.fetchone()
+        if record:
+            date, time, category, amount, description = record
+            main_screen = self.manager.get_screen("main").children[0]  # Get the ExpenseTracker instance
+
+            # Fill the input fields
+            main_screen.year_spinner.text, main_screen.month_spinner.text, main_screen.day_spinner.text = date.split("-")
+            main_screen.hour_spinner.text, main_screen.minute_spinner.text, main_screen.ampm_spinner.text = time.split(" ")
+            main_screen.category_spinner.text = category
+            main_screen.amount_input.text = str(amount)
+            main_screen.desc_input.text = description
+
+            main_screen.selected_expense_id = self.selected_expense_id  # Store selected ID
+
+            # Go back to main screen for editing
+            self.manager.current = "main"
 
 
 class ExpenseApp(App):
