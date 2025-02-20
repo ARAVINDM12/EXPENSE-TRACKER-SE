@@ -175,7 +175,12 @@ class ExpenseTracker(BoxLayout):
             print("Error while adding:", e)  # Debugging
 
     def open_history_page(self, instance):
-        self.screen_manager.current = "history"  # Switch to the history page
+        history_screen = self.screen_manager.get_screen("history")
+        history_screen.load_history()  
+        history_screen.delete_button.opacity = 1  # Make delete button visible
+        history_screen.delete_button.disabled = False
+        self.screen_manager.current = "history"
+
 
 
     def update_expense(self, instance):
@@ -212,6 +217,8 @@ class ExpenseTracker(BoxLayout):
     def view_history(self, instance):
         history_screen = self.screen_manager.get_screen("history")
         history_screen.load_history()
+        history_screen.delete_button.opacity = 0  # Hide delete button
+        history_screen.delete_button.disabled = True
         self.screen_manager.current = "history"
 
 class HistoryScreen(Screen):
