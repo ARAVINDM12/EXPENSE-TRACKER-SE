@@ -130,7 +130,7 @@ class ExpenseTracker(BoxLayout):
         self.update_button.bind(on_press=self.update_expense)
 
         self.delete_button = Button(text='Delete', background_color=(1, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
-        self.delete_button.bind(on_press=self.delete_expense)
+        self.delete_button.bind(on_press=self.open_history_page)  # Change function to open history
 
         self.history_button = Button(text='View History', background_color=(0.2, 0.4, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.history_button.bind(on_press=self.view_history)
@@ -144,26 +144,39 @@ class ExpenseTracker(BoxLayout):
         self.add_widget(BoxLayout(size_hint_y=1))
 
     def add_expense(self, instance):
-        date = self.date_input.text
-        time = self.time_input.text
-        category = self.category_spinner.text
-        amount = self.amount_input.text
-        description = self.desc_input.text
+        # Get the selected date values from spinners
+        date = f"{self.year_spinner.text}-{self.month_spinner.text}-{self.day_spinner.text}"
+        
+        # Get the selected time values from spinners
+        time = f"{self.hour_spinner.text}:{self.minute_spinner.text} {self.ampm_spinner.text}"
+        
+        category = self.category_spinner.text.strip()
+        amount = self.amount_input.text.strip()
+        description = self.desc_input.text.strip()
 
-        if not date or not time or category == "Select Category" or not amount:
-            return  # Do nothing if fields are empty
+        print(f"Trying to add: {date}, {time}, {category}, {amount}, {description}")  # Debugging
+
+        # Check if any field is empty
+        if category == "Select Category" or not amount:
+            print("Error: Some fields are empty!")  # Debugging
+            return  # Prevent inserting incomplete data
 
         try:
             cursor.execute("INSERT INTO expenses (date, time, category, amount, description) VALUES (?, ?, ?, ?, ?)",
-                           (date, time, category, float(amount), description))
+                        (date, time, category, float(amount), description))
             conn.commit()
-            self.date_input.text = ""
-            self.time_input.text = ""
+            print("Expense added successfully!")  # Debugging
+            
+            # Clear input fields after adding data
             self.amount_input.text = ""
             self.desc_input.text = ""
-            print("Expense added successfully!")
+
         except Exception as e:
-            print("Error:", e)
+            print("Error while adding:", e)  # Debugging
+
+    def open_history_page(self, instance):
+        self.screen_manager.current = "history"  # Switch to the history page
+
 
     def update_expense(self, instance):
         if not self.selected_expense_id:
@@ -217,27 +230,65 @@ class HistoryScreen(Screen):
 
         layout.add_widget(scroll_view)
 
+        # Delete Button
+        self.delete_button = Button(text="Delete Selected", size_hint_y=None, height=50, background_color=(1, 0, 0, 1))
+        self.delete_button.bind(on_press=self.delete_selected_expense)
+        layout.add_widget(self.delete_button)
+
         # Back Button
         back_button = Button(text="Back", size_hint_y=None, height=50, background_color=(0.2, 0.6, 1, 1))
         back_button.bind(on_press=self.go_back)
         layout.add_widget(back_button)
 
         self.add_widget(layout)
+        self.selected_expense_id = None  # Store selected expense ID
 
     def load_history(self):
         self.history_list.clear_widgets()
-        cursor.execute("SELECT date, time, category, amount, description FROM expenses ORDER BY date DESC")
+        cursor.execute("SELECT id, date, time, category, amount, description FROM expenses ORDER BY date DESC")
         records = cursor.fetchall()
 
         if not records:
             self.history_list.add_widget(Label(text="No history found.", font_size=18, color=(1, 1, 1, 1)))
         else:
             for row in records:
-                entry = CustomLabel(text=f"{row[0]} {row[1]} - {row[2]}: ₹{row[3]} ({row[4]})")
+                expense_id, date, time, category, amount, description = row
+                expense_text = f"{date} {time} - {category}: ₹{amount} ({description})"
+
+                entry = Button(text=expense_text, size_hint_y=None, height=50, background_color=(0.3, 0.3, 0.3, 1))
+                entry.bind(on_press=lambda instance, eid=expense_id: self.select_expense(eid, instance))
                 self.history_list.add_widget(entry)
+
+    def select_expense(self, expense_id, instance):
+        # Reset color of previously selected button
+        if hasattr(self, 'selected_button') and self.selected_button:
+            self.selected_button.background_color = (0.3, 0.3, 0.3, 1)  # Default color
+
+        # Set new selection
+        self.selected_expense_id = expense_id
+        self.selected_button = instance
+        self.selected_button.background_color = (1, 0, 0, 1)  # Highlight in red
+
+
+    def delete_selected_expense(self, instance):
+        if not self.selected_expense_id:
+            print("No expense selected!")
+            return
+
+        try:
+            cursor.execute("DELETE FROM expenses WHERE id=?", (self.selected_expense_id,))
+            conn.commit()
+            print("Expense deleted successfully!")
+
+            self.selected_expense_id = None  # Reset selection
+            self.load_history()  # Refresh history after deletion
+
+        except Exception as e:
+            print("Error:", e)
 
     def go_back(self, instance):
         self.manager.current = "main"
+
 
 class ExpenseApp(App):
     def build(self):
