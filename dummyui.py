@@ -192,18 +192,18 @@ class ExpenseTracker(BoxLayout):
         if instance == self.update_button:
             history_screen.delete_button.text = "Update Selected"
             history_screen.delete_button.background_color = self.update_button.background_color
-            history_screen.delete_button.unbind(on_press=self.delete_expense)
-            history_screen.delete_button.bind(on_press=self.update_expense)
+            history_screen.delete_button.unbind(on_press=history_screen.delete_selected_expense)
+            # Corrected line: Use lambda to capture expense_id
+            history_screen.delete_button.bind(on_press=lambda instance: history_screen.load_expense_for_editing())
         else:
             history_screen.delete_button.text = "Delete Selected"
             history_screen.delete_button.background_color = self.delete_button.background_color
-            history_screen.delete_button.unbind(on_press=self.update_expense)
-            history_screen.delete_button.bind(on_press=self.delete_expense)
+            history_screen.delete_button.unbind(on_press=history_screen.load_expense_for_editing)
+            history_screen.delete_button.bind(on_press=history_screen.delete_selected_expense)
 
         history_screen.delete_button.opacity = 1
         history_screen.delete_button.disabled = False
         self.screen_manager.current = "history"
-
 
 
 
@@ -325,13 +325,13 @@ class HistoryScreen(Screen):
                 expense_text = f"{date} {time} - {category}: ₹{amount} ({description})"
 
                 entry = Button(text=expense_text, size_hint_y=None, height=50, background_color=(0.3, 0.3, 0.3, 1))
-                entry.bind(on_press=lambda instance, eid=expense_id: self.select_expense(eid, instance))
+                entry.bind(on_press=lambda instance, eid=expense_id: self.select_expense_for_delete(eid, instance)) #changed to the delete call
                 self.history_list.add_widget(entry)
 
         self.history_list.parent.scroll_y = 1  # Scroll to top to show latest
 
 
-    def select_expense(self, expense_id, instance):
+    def select_expense(self, expense_id, instance, update_mode=False):
         if hasattr(self, 'selected_button') and self.selected_button:
             self.selected_button.background_color = (0.3, 0.3, 0.3, 1)  # Reset previous selection
 
@@ -339,35 +339,38 @@ class HistoryScreen(Screen):
         self.selected_button = instance
         self.selected_button.background_color = (1, 0, 0, 1)  # Highlight selected
 
-        # Retrieve expense details
-        cursor.execute("SELECT date, time, category, amount, description FROM expenses WHERE id=?", (expense_id,))
-        record = cursor.fetchone()
-        
-        if record:
-            date, time, category, amount, description = record
-            expense_tracker = self.manager.get_screen("main").children[0]  # Get main screen's ExpenseTracker instance
+        if update_mode:
+            # Retrieve expense details and populate main screen
+            cursor.execute("SELECT date, time, category, amount, description FROM expenses WHERE id=?", (expense_id,))
+            record = cursor.fetchone()
 
-            # Split date and time for spinners
-            year, month, day = date.split("-")
-            hour_minute, am_pm = time.split()
-            hour, minute = hour_minute.split(":")
+            if record:
+                date, time, category, amount, description = record
+                expense_tracker = self.manager.get_screen("main").children[0]  # Get main screen's ExpenseTracker instance
 
-            # Populate fields in main screen
-            expense_tracker.year_spinner.text = year
-            expense_tracker.month_spinner.text = month
-            expense_tracker.day_spinner.text = day
-            expense_tracker.hour_spinner.text = hour
-            expense_tracker.minute_spinner.text = minute
-            expense_tracker.ampm_spinner.text = am_pm
-            expense_tracker.category_spinner.text = category
-            expense_tracker.amount_input.text = str(amount)
-            expense_tracker.desc_input.text = description
+                # Split date and time for spinners
+                year, month, day = date.split("-")
+                hour_minute, am_pm = time.split()
+                hour, minute = hour_minute.split(":")
 
-            # Store expense ID for update
-            expense_tracker.selected_expense_id = expense_id
-            
-            # Switch to main screen
-            self.manager.current = "main"
+                # Populate fields in main screen
+                expense_tracker.year_spinner.text = year
+                expense_tracker.month_spinner.text = month
+                expense_tracker.day_spinner.text = day
+                expense_tracker.hour_spinner.text = hour
+                expense_tracker.minute_spinner.text = minute
+                expense_tracker.ampm_spinner.text = am_pm
+                expense_tracker.category_spinner.text = category
+                expense_tracker.amount_input.text = str(amount)
+                expense_tracker.desc_input.text = description
+
+                # Store expense ID for update
+                expense_tracker.selected_expense_id = expense_id
+
+                # Switch to main screen
+                self.manager.current = "main"
+
+        # If update_mode is False (delete or view), nothing happens after highlighting
 
 
 
@@ -408,7 +411,30 @@ class HistoryScreen(Screen):
 
             # Fill the input fields
             main_screen.year_spinner.text, main_screen.month_spinner.text, main_screen.day_spinner.text = date.split("-")
-            main_screen.hour_spinner.text, main_screen.minute_spinner.text, main_screen.ampm_spinner.text = time.split(" ")
+
+            time_parts = time.split(" ")
+            if len(time_parts) == 2:
+                hour_minute = time_parts[0].split(":")
+                if len(hour_minute) == 2:
+                    main_screen.hour_spinner.text = hour_minute[0]
+                    main_screen.minute_spinner.text = hour_minute[1]
+                    main_screen.ampm_spinner.text = time_parts[1] # AM/PM
+                else:
+                    print(f"Invalid time format: {time}")
+                    return
+            elif len(time_parts) == 1: #case where there is no AM/PM
+                hour_minute = time_parts[0].split(":")
+                if len(hour_minute) == 2:
+                    main_screen.hour_spinner.text = hour_minute[0]
+                    main_screen.minute_spinner.text = hour_minute[1]
+                    main_screen.ampm_spinner.text = "AM" #Default to AM if none is given.
+                else:
+                    print(f"Invalid time format: {time}")
+                    return
+            else:
+                print(f"Invalid time format: {time}")
+                return
+
             main_screen.category_spinner.text = category
             main_screen.amount_input.text = str(amount)
             main_screen.desc_input.text = description
@@ -418,6 +444,14 @@ class HistoryScreen(Screen):
             # Go back to main screen for editing
             self.manager.current = "main"
 
+    def select_expense_for_update(self, expense_id, instance):
+        self.select_expense(expense_id, instance, update_mode=True) #called when update button is pressed
+
+    def select_expense_for_delete(self, expense_id, instance):
+        self.select_expense(expense_id, instance) #called when history item is pressed for deletion
+
+    def select_expense_for_view(self, expense_id, instance):
+        self.select_expense(expense_id, instance) #called when history item is pressed for view
 
 class ExpenseApp(App):
     def build(self):
