@@ -285,17 +285,17 @@ class ExpenseTracker(BoxLayout):
 class HistoryScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=10, size_hint=(1, 1)) # Add size_hint
 
         # Header
         layout.add_widget(StylishLabel(text="Expense History"))
 
         # Scrollable List
-        scroll_view = ScrollView()
-        self.history_list = BoxLayout(orientation='vertical', spacing=10, size_hint_y=None)
+        scroll_view = ScrollView(size_hint_y=1, pos_hint={'top': 1}) # Add pos_hint to align top
+        self.history_list = GridLayout(cols=6, spacing=10, size_hint_y=None)  # Create GridLayout
         self.history_list.bind(minimum_height=self.history_list.setter('height'))
         scroll_view.add_widget(self.history_list)
-
+        
         layout.add_widget(scroll_view)
 
         # Delete Button
@@ -312,23 +312,48 @@ class HistoryScreen(Screen):
         self.selected_expense_id = None  # Store selected expense ID
 
     def load_history(self):
-        self.history_list.clear_widgets()  # Clear previous entries
+        try:
+            # Clear existing data
+            self.history_list.clear_widgets()
 
-        cursor.execute("SELECT id, date, time, category, amount, description FROM expenses ORDER BY date DESC")
-        records = cursor.fetchall()
+            # Headers
+            headers = ["Date", "Time", "Category", "Amount", "Description", "Select"]
+            for header in headers:
+                label = Label(text=header, bold=True, size_hint_y=None, height=30, color=(0, 1, 1, 1))
+                self.history_list.add_widget(label)
 
-        if not records:
-            self.history_list.add_widget(Label(text="No history found.", font_size=18, color=(1, 1, 1, 1)))
-        else:
-            for row in records:
-                expense_id, date, time, category, amount, description = row
-                expense_text = f"{date} {time} - {category}: ₹{amount} ({description})"
+            # Fetch records from the database
+            conn = sqlite3.connect("expenses.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, date, time, category, amount, description FROM expenses ORDER BY date DESC")
+            records = cursor.fetchall()
+            conn.close()
 
-                entry = Button(text=expense_text, size_hint_y=None, height=50, background_color=(0.3, 0.3, 0.3, 1))
-                entry.bind(on_press=lambda instance, eid=expense_id: self.select_expense_for_delete(eid, instance)) #changed to the delete call
-                self.history_list.add_widget(entry)
+            if not records:
+                no_data_label = Label(text="No history found.", font_size=18, color=(1, 1, 1, 1), size_hint_y=None, height=30)
+                self.history_list.add_widget(no_data_label)
+                for _ in range(5):  # Fill empty columns to maintain structure
+                    self.history_list.add_widget(Label(text=""))
 
-        self.history_list.parent.scroll_y = 1  # Scroll to top to show latest
+            else:
+                for row in records:
+                    expense_id, date, time, category, amount, description = row
+                    labels = [date, time, category, f"₹{amount}", description]
+
+                    for text in labels:
+                        label = Label(text=text, size_hint_y=None, height=30, color=(1, 1, 1, 1))
+                        self.history_list.add_widget(label)
+
+                    select_button = Button(text="Select", size_hint_y=None, height=30, background_color=(0.3, 0.3, 0.3, 1))
+                    select_button.bind(on_press=lambda instance, eid=expense_id: self.select_expense_for_delete(eid, instance))
+                    self.history_list.add_widget(select_button)
+
+            self.history_list.height = self.history_list.minimum_height
+            self.history_list.parent.scroll_y = 1  # Reset scroll position to top
+
+        except Exception as e:
+            print(f"Error loading history: {e}")
+
 
 
     def select_expense(self, expense_id, instance, update_mode=False):
