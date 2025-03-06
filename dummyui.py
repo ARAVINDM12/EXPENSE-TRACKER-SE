@@ -503,6 +503,16 @@ class HistoryScreen(Screen):
         self.add_widget(layout)
         self.selected_expense_id = None  # Store selected expense ID
     
+    def show_popup(self, title, message):
+        content = BoxLayout(orientation='vertical')
+        content.add_widget(Label(text=message))
+        close_button = Button(text='Close', size_hint_y=None, height=40)
+        content.add_widget(close_button)
+
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
+        close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
+        popup.open()
+    
     def load_history(self):
         try:
             self.history_list.clear_widgets()
