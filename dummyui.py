@@ -14,6 +14,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from datetime import datetime
 from kivy.uix.popup import Popup
 from collections import defaultdict
+import datetime
 
 # Set window background color
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Dark theme
@@ -75,7 +76,7 @@ class ExpenseTracker(BoxLayout):
         self.screen_manager = screen_manager
 
         # Get current date and time
-        now = datetime.now()
+        now = datetime.datetime.now()
         current_date = now.strftime("%Y-%m-%d")
         current_day = now.strftime("%d")
         current_month = now.strftime("%m")
@@ -362,15 +363,7 @@ class HistoryScreen(Screen):
 
         self.add_widget(layout)
         self.selected_expense_id = None  # Store selected expense ID
-    def show_popup(self, title, message):
-        content = BoxLayout(orientation='vertical')
-        content.add_widget(Label(text=message))
-        close_button = Button(text='Close', size_hint_y=None, height=40)
-        content.add_widget(close_button)
-
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
-        close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
-        popup.open()
+    
     def load_history(self):
         try:
             self.history_list.clear_widgets()
@@ -385,8 +378,40 @@ class HistoryScreen(Screen):
             cursor = conn.cursor()
             cursor.execute("SELECT id, date, time, category, amount, description, expense_type FROM expenses ORDER BY date DESC,time DESC")
             records = cursor.fetchall()
+            # Group records by date
+            
+            records_by_date = defaultdict(list)
+            for row in records:
+                date_obj = datetime.datetime.strptime(row[1], "%Y-%m-%d").date()
+                records_by_date[date_obj].append(row)
 
-        
+            for date_obj, daily_records in records_by_date.items():
+                # Add date separator
+                date_str = date_obj.strftime("%Y-%m-%d")
+                separator_label = Label(
+                text=f" ────────────────── {date_str} ────────────────── ",
+                bold=True,
+                size_hint_y=None,
+                height=30,
+                color=(0.5, 0.5, 0.5, 1),  # Darker gray
+                font_size=14,  # Adjust font size as needed
+                )
+                self.history_list.add_widget(separator_label)
+                for _ in range(self.history_list.cols - 1): # Fill remaining columns
+                    self.history_list.add_widget(Label(text="", size_hint_y=None, height=30))
+
+                for row in daily_records:
+                    expense_id, date, time, category, amount, description, expense_type = row
+                    color = (1, 0, 0, 1) if expense_type == "Expense" else (0, 1, 0, 1)
+                    labels = [date, time, category, f"₹{amount}", description, expense_type]
+
+                    for text in labels:
+                        label = Label(text=text, size_hint_y=None, height=30, color=color)
+                        self.history_list.add_widget(label)
+
+                    select_button = Button(text="Select", size_hint_y=None, height=30, background_color=(0.3, 0.3, 0.3, 1))
+                    select_button.bind(on_press=lambda instance, eid=expense_id: self.select_expense_for_delete(eid, instance))
+                    self.history_list.add_widget(select_button)
 
             # Calculate total expense, total income, and net
             cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type = 'Expense'")
