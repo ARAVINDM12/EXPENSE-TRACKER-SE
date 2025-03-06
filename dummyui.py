@@ -12,6 +12,8 @@ from kivy.core.window import Window
 from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.screenmanager import ScreenManager, Screen
 from datetime import datetime
+from kivy.uix.popup import Popup
+from collections import defaultdict
 
 # Set window background color
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Dark theme
@@ -164,6 +166,15 @@ class ExpenseTracker(BoxLayout):
         self.add_widget(button_layout)
         self.add_widget(BoxLayout(size_hint_y=1))  # Spacer
 
+    def show_popup(self, title, message):
+        content = BoxLayout(orientation='vertical')
+        content.add_widget(Label(text=message))
+        close_button = Button(text='Close', size_hint_y=None, height=40)
+        content.add_widget(close_button)
+
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
+        close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
+        popup.open()
 
     def add_expense(self, instance):
         date = f"{self.year_spinner.text}-{self.month_spinner.text}-{self.day_spinner.text}"
@@ -171,38 +182,39 @@ class ExpenseTracker(BoxLayout):
         category = self.category_spinner.text.strip()
         amount = self.amount_input.text.strip()
         description = self.desc_input.text.strip()
-        expense_type = self.expense_type_spinner.text.strip()  # Get selected type (Income/Expense)
+        expense_type = self.expense_type_spinner.text.strip()
 
+        if category == "Select Category" or not amount or not description:
+            self.show_popup("Input Error", "Some fields are empty!")
+            return
 
-        if category == "Select Category" or not amount:
-            print("Error: Some fields are empty!")  
-            return  
+        try:
+            float(amount)  # Try to convert to float; will raise ValueError if not numeric
+        except ValueError:
+            self.show_popup("Input Error", "Amount must be a numeric value.")
+            return
 
         try:
             if hasattr(self, "selected_expense_id") and self.selected_expense_id:
                 cursor.execute("UPDATE expenses SET date=?, time=?, category=?, amount=?, description=? WHERE id=?",
                             (date, time, category, float(amount), description, self.selected_expense_id))
                 conn.commit()
-                
-                print("Expense updated successfully!")
-
-                self.selected_expense_id = None  # Clear selection
-
+                self.show_popup("Expense Updated", "Expense updated successfully!")
+                self.selected_expense_id = None
             else:
-                cursor.execute("INSERT INTO expenses (date, time, category, amount, description,expense_type) VALUES (?, ?, ?, ?, ?, ?)",
-                            (date, time, category, float(amount), description,expense_type))
+                cursor.execute("INSERT INTO expenses (date, time, category, amount, description, expense_type) VALUES (?, ?, ?, ?, ?, ?)",
+                            (date, time, category, float(amount), description, expense_type))
                 conn.commit()
-                print(f"{expense_type} added successfully!")
+                self.show_popup(f"{expense_type} Added", f"{expense_type} added successfully!")
 
             self.amount_input.text = ""
             self.desc_input.text = ""
 
-            # Refresh history page
             history_screen = self.screen_manager.get_screen("history")
-            history_screen.load_history()  # <--- Refresh history UI
+            history_screen.load_history()
 
         except Exception as e:
-            print("Error while adding/updating:", e)
+            self.show_popup("Database Error", f"Error: {e}")
 
 
 
@@ -350,7 +362,15 @@ class HistoryScreen(Screen):
 
         self.add_widget(layout)
         self.selected_expense_id = None  # Store selected expense ID
+    def show_popup(self, title, message):
+        content = BoxLayout(orientation='vertical')
+        content.add_widget(Label(text=message))
+        close_button = Button(text='Close', size_hint_y=None, height=40)
+        content.add_widget(close_button)
 
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
+        close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
+        popup.open()
     def load_history(self):
         try:
             self.history_list.clear_widgets()
@@ -363,8 +383,10 @@ class HistoryScreen(Screen):
 
             conn = sqlite3.connect("expenses.db")
             cursor = conn.cursor()
-            cursor.execute("SELECT id, date, time, category, amount, description, expense_type FROM expenses ORDER BY date DESC")
+            cursor.execute("SELECT id, date, time, category, amount, description, expense_type FROM expenses ORDER BY date DESC,time DESC")
             records = cursor.fetchall()
+
+        
 
             # Calculate total expense, total income, and net
             cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type = 'Expense'")
@@ -463,6 +485,7 @@ class HistoryScreen(Screen):
             cursor.execute("DELETE FROM expenses WHERE id=?", (self.selected_expense_id,))
             conn.commit()
             print("Expense deleted successfully!")
+            self.show_popup("Expense Deleted", "Expense deleted successfully!")
 
             self.selected_expense_id = None  # Reset selection
             self.load_history()  # Refresh history after deletion
