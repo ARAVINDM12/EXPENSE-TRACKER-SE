@@ -145,7 +145,7 @@ class ExpenseTracker(BoxLayout):
         self.add_widget(input_layout)
 
         # Buttons
-        button_layout = GridLayout(cols=3, spacing=15, size_hint_y=None, height=60)
+        button_layout = GridLayout(cols=4, spacing=15, size_hint_y=None, height=60) # changed to 4 columns.
         self.add_button = Button(text='Add', background_color=(0, 0.8, 0.2, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.add_button.bind(on_press=self.add_expense)
 
@@ -158,14 +158,30 @@ class ExpenseTracker(BoxLayout):
         self.history_button = Button(text='View History', background_color=(0.2, 0.4, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.history_button.bind(on_press=self.view_history)
 
+        self.budget_button = Button(text='Set Budget', background_color=(0.8, 0.4, 0.2, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.budget_button.bind(on_press=self.open_budget_page) # new button and binding.
+
+        self.view_budget_button = Button(text='View Budgets', background_color=(0.4, 0.6, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.view_budget_button.bind(on_press=self.open_view_budgets_page) # new button and binding.
+
         button_layout.add_widget(self.add_button)
         button_layout.add_widget(self.update_button)
         button_layout.add_widget(self.delete_button)
         button_layout.add_widget(self.history_button)
+        button_layout.add_widget(self.budget_button) # add the budget button.
+        button_layout.add_widget(self.view_budget_button) # add the view budget button.
 
         self.add_widget(BoxLayout(size_hint_y=0.1))  # Spacer
         self.add_widget(button_layout)
         self.add_widget(BoxLayout(size_hint_y=1))  # Spacer
+    
+    def open_view_budgets_page(self, instance):
+        budgets_screen = self.screen_manager.get_screen("view_budgets")
+        budgets_screen.load_budgets()
+        self.screen_manager.current = "view_budgets"
+
+    def open_budget_page(self, instance):
+        self.screen_manager.current = "budgets"
 
     def show_popup(self, title, message):
         content = BoxLayout(orientation='vertical')
@@ -316,7 +332,130 @@ class ExpenseTracker(BoxLayout):
         self.screen_manager.current = "history"  # Open history screen
         history_screen = self.screen_manager.get_screen("history")
         history_screen.set_update_mode(True)  # Enable update mode
+class ViewBudgetsScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=10, size_hint=(1, 1))
 
+        layout.add_widget(StylishLabel(text="Budget List"))
+
+        scroll_view = ScrollView(size_hint_y=1, pos_hint={'top': 1})
+        self.budgets_list = GridLayout(cols=4, spacing=10, size_hint_y=None) #increased cols to 4
+        self.budgets_list.bind(minimum_height=self.budgets_list.setter('height'))
+        scroll_view.add_widget(self.budgets_list)
+
+        layout.add_widget(scroll_view)
+
+        back_button = Button(text="Back", size_hint_y=None, height=50, background_color=(0.2, 0.6, 1, 1))
+        back_button.bind(on_press=self.go_back)
+        layout.add_widget(back_button)
+
+        self.add_widget(layout)
+
+    def load_budgets(self):
+        try:
+            self.budgets_list.clear_widgets()
+            self.budgets_list.cols = 4 #Increased to 4
+
+            headers = ["Budget Type", "Category", "Amount", "Action"] # Added "Action" header
+            for header in headers:
+                label = Label(text=header, bold=True, size_hint_y=None, height=30, color=(0, 1, 1, 1))
+                self.budgets_list.add_widget(label)
+
+            conn = sqlite3.connect("expenses.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, budget_type, category, amount FROM budgets") #added id to select
+            records = cursor.fetchall()
+
+            for row in records:
+                budget_id, budget_type, category, amount = row #added budget_id
+                labels = [budget_type, category, f"₹{amount}"]
+
+                for text in labels:
+                    label = Label(text=text, size_hint_y=None, height=30, color=(0.5, 0.5, 0.5, 1), font_size = 14)
+                    self.budgets_list.add_widget(label)
+
+                delete_button = Button(text="X", size_hint_y=None, height=30, background_color=(1, 0, 0, 1))
+                delete_button.bind(on_press=lambda instance, budget_id=budget_id: self.delete_budget(budget_id)) #lambda function to pass budget id
+                self.budgets_list.add_widget(delete_button)
+
+            self.budgets_list.height = self.budgets_list.minimum_height
+            self.budgets_list.parent.scroll_y = 1
+
+        except Exception as e:
+            print(f"Error loading budgets: {e}")
+
+    def delete_budget(self, budget_id):
+        try:
+            conn = sqlite3.connect("expenses.db")
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM budgets WHERE id = ?", (budget_id,))
+            conn.commit()
+            self.load_budgets() #reload budgets after deletion
+        except Exception as e:
+            print(f"Error deleting budget: {e}")
+
+    def go_back(self, instance):
+        self.manager.current = "main"
+        
+class BudgetsScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=10, size_hint=(1, 1))
+
+        layout.add_widget(StylishLabel(text="Set Budgets"))
+
+        input_layout = GridLayout(cols=2, spacing=15, size_hint_y=None, height=200)
+
+        self.budget_type_spinner = Spinner(text="Daily", values=("Daily", "Weekly", "Monthly", "Yearly"), size_hint_y=None, height=50)
+        self.budget_category_spinner = Spinner(text="All", values=("All", "Food", "Transport", "Shopping", "Entertainment", "Bills", "Others"), size_hint_y=None, height=50)
+        self.budget_amount_input = TextInput(hint_text="Budget Amount", size_hint_y=None, height=50)
+
+        input_layout.add_widget(CustomLabel(text="Budget Type:"))
+        input_layout.add_widget(self.budget_type_spinner)
+        input_layout.add_widget(CustomLabel(text="Category:"))
+        input_layout.add_widget(self.budget_category_spinner)
+        input_layout.add_widget(CustomLabel(text="Amount:"))
+        input_layout.add_widget(self.budget_amount_input)
+
+        layout.add_widget(input_layout)
+
+        set_budget_button = Button(text="Set Budget", size_hint_y=None, height=50, background_color=(0.8, 0.4, 0.2, 1))
+        set_budget_button.bind(on_press=self.set_budget)
+        layout.add_widget(set_budget_button)
+
+        back_button = Button(text="Back", size_hint_y=None, height=50, background_color=(0.2, 0.6, 1, 1))
+        back_button.bind(on_press=self.go_back)
+        layout.add_widget(back_button)
+
+        layout.add_widget(BoxLayout(size_hint_y=1)) # Spacer to push content to top.
+
+        self.add_widget(layout)
+
+    def set_budget(self, instance):
+        # Add your budget setting logic here (database insertion, etc.)
+        budget_type = self.budget_type_spinner.text
+        category = self.budget_category_spinner.text
+        amount = self.budget_amount_input.text
+        try:
+            amount = float(amount)
+            cursor.execute("INSERT INTO budgets (budget_type, category, amount) VALUES (?, ?, ?)", (budget_type, category, amount))
+            conn.commit()
+            self.show_popup("budget added","budget added successfully")
+        except:
+            self.show_popup("error", "invalid amount")
+
+    def go_back(self, instance):
+        self.manager.current = "main"
+    def show_popup(self, title, message):
+        content = BoxLayout(orientation='vertical')
+        content.add_widget(Label(text=message))
+        close_button = Button(text='Close', size_hint_y=None, height=40)
+        content.add_widget(close_button)
+
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
+        close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
+        popup.open()
 
 class HistoryScreen(Screen):
     def __init__(self, **kwargs):
@@ -577,12 +716,47 @@ class HistoryScreen(Screen):
 
 class ExpenseApp(App):
     def build(self):
-        sm = ScreenManager()
-        sm.add_widget(Screen(name="main"))
-        sm.add_widget(HistoryScreen(name="history"))
-        sm.get_screen("main").add_widget(ExpenseTracker(screen_manager=sm))
-        return sm
+        try:
+            conn = sqlite3.connect("expenses.db")
+            cursor = conn.cursor()
+
+            # Create the expenses table (if it doesn't exist)
+            cursor.execute('''CREATE TABLE IF NOT EXISTS expenses (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                date TEXT,
+                                time TEXT,
+                                category TEXT,
+                                amount REAL,
+                                description TEXT,
+                                expense_type TEXT)''')
+
+            # Create the budgets table (if it doesn't exist)
+            cursor.execute('''CREATE TABLE IF NOT EXISTS budgets (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                budget_type TEXT,
+                                category TEXT,
+                                amount REAL)''')
+
+            conn.commit()
+
+            sm = ScreenManager()
+            sm.add_widget(Screen(name="main"))
+            sm.add_widget(HistoryScreen(name="history"))
+            sm.add_widget(BudgetsScreen(name="budgets"))
+            sm.add_widget(ViewBudgetsScreen(name="view_budgets"))
+            sm.get_screen("main").add_widget(ExpenseTracker(screen_manager=sm))
+
+            self.conn = conn  # Store the connection for later use
+            return sm
+
+        except sqlite3.Error as e:
+            print(f"Database error during initialization: {e}")
+            # Consider showing a popup or exiting the app if database setup fails
+            return None  # Return None to prevent app from running without database
+
+    def on_stop(self):
+        if hasattr(self, 'conn'):
+            self.conn.close()
 
 if __name__ == '__main__':
     ExpenseApp().run()
-    conn.close()
