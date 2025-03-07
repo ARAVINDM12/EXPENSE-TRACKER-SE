@@ -1,4 +1,5 @@
 import sqlite3
+from kivy_garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.textinput import TextInput
@@ -16,6 +17,7 @@ from kivy.uix.popup import Popup
 from collections import defaultdict
 import datetime
 from datetime import  timedelta
+import matplotlib.pyplot as plt
 
 # Set window background color
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Dark theme
@@ -167,12 +169,16 @@ class ExpenseTracker(BoxLayout):
         self.view_budget_button = Button(text='View Budgets', background_color=(0.4, 0.6, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.view_budget_button.bind(on_press=self.open_view_budgets_page)  # new button and binding.
 
+        self.reports_button = Button(text='Generate Reports', background_color=(0, 1, 0, 1),font_size=18, bold=True, size_hint_y=None, height=50)
+        self.reports_button.bind(on_press=self.open_reports_page)  # Bind to the function
+
         button_layout.add_widget(self.add_button)
         button_layout.add_widget(self.update_button)
         button_layout.add_widget(self.delete_button)
         button_layout.add_widget(self.history_button)
         button_layout.add_widget(self.budget_button)  # add the budget button.
         button_layout.add_widget(self.view_budget_button)  # add the view budget button.
+        button_layout.add_widget(self.reports_button)  # Add button to layout
 
         self.add_widget(BoxLayout(size_hint_y=0.1))  # Spacer
         self.add_widget(button_layout)
@@ -264,6 +270,10 @@ class ExpenseTracker(BoxLayout):
         budgets_screen = self.screen_manager.get_screen("view_budgets")
         budgets_screen.load_budgets()
         self.screen_manager.current = "view_budgets"
+    
+    def open_reports_page(self, instance):
+        self.screen_manager.current = 'reports'  # Navigate to ReportsScreen
+
 
     def open_budget_page(self, instance):
         self.screen_manager.current = "budgets"
@@ -539,6 +549,151 @@ class BudgetsScreen(Screen):
         popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
         close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
         popup.open()
+
+class ReportsScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # Main Vertical Layout
+        main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+
+        # Title Label (Always on top)
+        main_layout.add_widget(Label(text="Expense Reports", font_size=24, bold=True, size_hint_y=None, height=50))
+
+        # Charts Box (STRICTLY HALF THE SCREEN)
+        self.chart_container = BoxLayout(orientation='horizontal', size_hint_y=0.5, spacing=10)
+        main_layout.add_widget(self.chart_container)
+
+        # Lower Section (Filters + Buttons)
+        lower_section = BoxLayout(orientation='vertical', size_hint_y=0.5, spacing=10)
+
+        # Filters Layout (Period Selection & Date Inputs)
+        filter_layout = BoxLayout(size_hint_y=None, height=40, spacing=10)
+
+        # Report Type Dropdown (Half Width)
+        self.report_type = Spinner(
+            text="Daily",
+            values=("Daily", "Weekly", "Monthly", "Yearly", "Custom"),
+            size_hint=(0.5, None),
+            size=(120, 50)
+        )
+        filter_layout.add_widget(self.report_type)
+        self.report_type.bind(text=self.on_report_type_change)
+
+        # Custom Date Inputs (Evenly Split Other Half)
+        date_inputs_layout = BoxLayout(size_hint=(0.5, None), height=40, spacing=10)
+        self.start_date_input = TextInput(hint_text="Start Date (YYYY-MM-DD)", size_hint=(0.5, None), size=(140, 50))
+        self.end_date_input = TextInput(hint_text="End Date (YYYY-MM-DD)", size_hint=(0.5, None), size=(140, 50))
+        self.start_date_input.disabled = True
+        self.end_date_input.disabled = True
+        date_inputs_layout.add_widget(self.start_date_input)
+        date_inputs_layout.add_widget(self.end_date_input)
+        filter_layout.add_widget(date_inputs_layout)
+
+        lower_section.add_widget(filter_layout)
+
+        # Button Layout (More Evenly Spaced)
+        button_layout = GridLayout(cols=3, spacing=10, size_hint_y=None, height=50)
+
+        # Generate Reports Button
+        self.generate_button = Button(text="Generate Report", background_color=(0, 1, 0, 1))
+        self.generate_button.bind(on_press=self.generate_reports)
+        button_layout.add_widget(self.generate_button)
+
+        # Export CSV Button
+        csv_button = Button(text="Export CSV", background_color=(0.8, 0.5, 0, 1))
+        csv_button.bind(on_press=self.export_csv)
+        button_layout.add_widget(csv_button)
+
+        # Export PDF Button
+        pdf_button = Button(text="Export PDF", background_color=(0.5, 0.2, 0.8, 1))
+        pdf_button.bind(on_press=self.export_pdf)
+        button_layout.add_widget(pdf_button)
+
+        lower_section.add_widget(button_layout)
+
+        # Back Button (Smaller Height)
+        back_button = Button(text="Back", size_hint_x=1, size_hint_y=None, height=50, background_color=(0.2, 0.6, 1, 1))
+        back_button.bind(on_press=self.go_back)
+        lower_section.add_widget(back_button)
+
+        main_layout.add_widget(lower_section)
+        self.add_widget(main_layout)
+
+        # Generate default daily report
+        self.generate_reports(None)
+
+    def on_report_type_change(self, spinner, text):
+        if text == "Custom":
+            self.start_date_input.disabled = False
+            self.end_date_input.disabled = False
+        else:
+            self.start_date_input.disabled = True
+            self.end_date_input.disabled = True
+
+    def generate_reports(self, instance):
+        self.chart_container.clear_widgets()
+        report_type = self.report_type.text
+        start_date = self.start_date_input.text
+        end_date = self.end_date_input.text
+        data = self.fetch_expense_data(report_type, start_date, end_date)
+        if data:
+            pie_chart, bar_chart = self.create_charts(data)
+            self.chart_container.add_widget(FigureCanvasKivyAgg(pie_chart))
+            self.chart_container.add_widget(FigureCanvasKivyAgg(bar_chart))
+        else:
+            popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
+            popup.open()
+
+    def fetch_expense_data(self, report_type, start_date, end_date):
+        conn = sqlite3.connect("expenses.db")
+        cursor = conn.cursor()
+        query = """
+        SELECT category, SUM(amount)
+        FROM expenses
+        WHERE date BETWEEN ? AND ?
+        GROUP BY category
+        ORDER BY category ASC
+        """
+        if report_type == "Daily":
+            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Weekly":
+            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Monthly":
+            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Yearly":
+            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Custom":
+            if not start_date or not end_date:
+                return None
+
+        cursor.execute(query, (start_date, end_date))
+        data = cursor.fetchall()
+        conn.close()
+        return data
+
+    def create_charts(self, data):
+        categories, values = zip(*data) if data else ([], [])
+        fig1, ax1 = plt.subplots(figsize=(4, 4))
+        ax1.pie(values, labels=categories, autopct='%1.1f%%', startangle=140)
+        ax1.set_title("Category-wise Expense Breakdown")
+        fig2, ax2 = plt.subplots()
+        ax2.bar(["Total Income", "Total Expense"], [sum(values), sum(values) * 1.2], color=["green", "red"])
+        ax2.set_title("Total Income vs Expense")
+        return fig1, fig2
+
+    def export_csv(self, instance):
+        pass
+
+    def export_pdf(self, instance):
+        pass
+
+    def go_back(self, instance):
+        self.manager.current = 'main'
+
 
 class HistoryScreen(Screen):
     def __init__(self, **kwargs):
@@ -837,6 +992,7 @@ class ExpenseApp(App):
             sm.add_widget(HistoryScreen(name="history"))
             sm.add_widget(BudgetsScreen(name="budgets"))
             sm.add_widget(ViewBudgetsScreen(name="view_budgets"))
+            sm.add_widget(ReportsScreen(name='reports'))
             sm.get_screen("main").add_widget(ExpenseTracker(screen_manager=sm, cursor=cursor, conn=conn)) #added cursor and conn
 
             self.conn = conn  # Store the connection for later use
