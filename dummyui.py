@@ -15,6 +15,7 @@ from datetime import datetime
 from kivy.uix.popup import Popup
 from collections import defaultdict
 import datetime
+from datetime import  timedelta
 
 # Set window background color
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Dark theme
@@ -71,9 +72,11 @@ class CustomLabel(Label):
 
 
 class ExpenseTracker(BoxLayout):
-    def __init__(self, screen_manager, **kwargs):
+    def __init__(self, screen_manager, cursor, conn, **kwargs): # Added cursor and conn
         super().__init__(orientation='vertical', padding=50, spacing=20, **kwargs)
         self.screen_manager = screen_manager
+        self.cursor = cursor # Added this line
+        self.conn = conn # Added this line
 
         # Get current date and time
         now = datetime.datetime.now()
@@ -84,7 +87,7 @@ class ExpenseTracker(BoxLayout):
         current_hour = now.strftime("%I")  # 12-hour format
         current_minute = now.strftime("%M")
         current_ampm = now.strftime("%p")
-        
+
         # Header
         self.add_widget(StylishLabel(text="EXPENSE TRACKER"))
 
@@ -121,7 +124,7 @@ class ExpenseTracker(BoxLayout):
 
         # Category Dropdown
         self.category_spinner = Spinner(text='Select Category', values=('Food', 'Transport', 'Shopping', 'Entertainment', 'Bills', 'Others'),
-                                        size_hint_y=None, height=50)
+                                         size_hint_y=None, height=50)
         input_layout.add_widget(CustomLabel(text='Category:'))
         input_layout.add_widget(self.category_spinner)
 
@@ -145,7 +148,7 @@ class ExpenseTracker(BoxLayout):
         self.add_widget(input_layout)
 
         # Buttons
-        button_layout = GridLayout(cols=4, spacing=15, size_hint_y=None, height=60) # changed to 4 columns.
+        button_layout = GridLayout(cols=4, spacing=15, size_hint_y=None, height=60)  # changed to 4 columns.
         self.add_button = Button(text='Add', background_color=(0, 0.8, 0.2, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.add_button.bind(on_press=self.add_expense)
 
@@ -159,22 +162,104 @@ class ExpenseTracker(BoxLayout):
         self.history_button.bind(on_press=self.view_history)
 
         self.budget_button = Button(text='Set Budget', background_color=(0.8, 0.4, 0.2, 1), font_size=18, bold=True, size_hint_y=None, height=50)
-        self.budget_button.bind(on_press=self.open_budget_page) # new button and binding.
+        self.budget_button.bind(on_press=self.open_budget_page)  # new button and binding.
 
         self.view_budget_button = Button(text='View Budgets', background_color=(0.4, 0.6, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
-        self.view_budget_button.bind(on_press=self.open_view_budgets_page) # new button and binding.
+        self.view_budget_button.bind(on_press=self.open_view_budgets_page)  # new button and binding.
 
         button_layout.add_widget(self.add_button)
         button_layout.add_widget(self.update_button)
         button_layout.add_widget(self.delete_button)
         button_layout.add_widget(self.history_button)
-        button_layout.add_widget(self.budget_button) # add the budget button.
-        button_layout.add_widget(self.view_budget_button) # add the view budget button.
+        button_layout.add_widget(self.budget_button)  # add the budget button.
+        button_layout.add_widget(self.view_budget_button)  # add the view budget button.
 
         self.add_widget(BoxLayout(size_hint_y=0.1))  # Spacer
         self.add_widget(button_layout)
         self.add_widget(BoxLayout(size_hint_y=1))  # Spacer
     
+    def check_budget(self, date_obj, category, amount):
+        assert isinstance(amount, float), "Amount should be a float in check_budget"
+        cursor = self.cursor
+        conn = self.conn
+        try:
+            # Daily Check
+            self.check_daily_budgets(cursor, date_obj, category, amount)
+
+            # Weekly Check
+            start_week = date_obj - timedelta(days=date_obj.weekday())
+            end_week = start_week + timedelta(days=6)
+            self.check_weekly_budgets(cursor, start_week, end_week, category, amount)
+
+            # Monthly Check
+            start_month = date_obj.replace(day=1)
+            end_month = (start_month.replace(month=start_month.month + 1) - timedelta(days=1))
+            self.check_monthly_budgets(cursor, start_month, end_month, category, amount)
+
+            # Yearly Check
+            start_year = date_obj.replace(month=1, day=1)
+            end_year = date_obj.replace(month=12, day=31)
+            self.check_yearly_budgets(cursor, start_year, end_year, category, amount)
+
+        except sqlite3.Error as e:
+            print(f"Database error during budget check: {e}")
+            self.show_popup("Database Error", f"Database error: {e}")
+        except Exception as e:
+            print(f"Error checking budget: {e}")
+            self.show_popup("Error", f"Error checking budget: {e}")
+
+    def check_daily_budgets(self, cursor, date_obj, category, amount):
+        self.check_budget_type(cursor, date_obj, date_obj, "Daily", category, amount)
+        if category != "All":
+            self.check_budget_type(cursor, date_obj, date_obj, "Daily", "All", amount)
+
+    def check_weekly_budgets(self, cursor, start_week, end_week, category, amount):
+        self.check_budget_type(cursor, start_week, end_week, "Weekly", category, amount)
+        if category != "All":
+            self.check_budget_type(cursor, start_week, end_week, "Weekly", "All", amount)
+
+    def check_monthly_budgets(self, cursor, start_month, end_month, category, amount):
+        self.check_budget_type(cursor, start_month, end_month, "Monthly", category, amount)
+        if category != "All":
+            self.check_budget_type(cursor, start_month, end_month, "Monthly", "All", amount)
+
+    def check_yearly_budgets(self, cursor, start_year, end_year, category, amount):
+        self.check_budget_type(cursor, start_year, end_year, "Yearly", category, amount)
+        if category != "All":
+            self.check_budget_type(cursor, start_year, end_year, "Yearly", "All", amount)
+
+    def check_budget_type(self, cursor, start_date, end_date, budget_type, category, amount):
+        assert isinstance(amount, float), "Amount should be a float in check_budget_type"
+
+        cursor.execute("SELECT amount FROM budgets WHERE budget_type = ? AND (category = ? OR category = 'All')", (budget_type, category))
+        budget_result = cursor.fetchone()
+
+        if budget_result:
+            budget_amount = float(budget_result[0])
+
+            if category == "All":
+                cursor.execute("SELECT SUM(amount) FROM expenses WHERE date BETWEEN ? AND ?", (str(start_date), str(end_date)))
+            else:
+                cursor.execute("SELECT SUM(amount) FROM expenses WHERE date BETWEEN ? AND ? AND category = ?", (str(start_date), str(end_date), category))
+
+            total_spent_result = cursor.fetchone()
+            total_spent = total_spent_result[0] if total_spent_result and total_spent_result[0] else 0.0
+
+            if total_spent + amount > budget_amount:
+                exceeded_by = (total_spent + amount) - budget_amount
+                self.show_popup("Overspending", f"You've exceeded your {budget_type} budget for {category} by {exceeded_by:.2f}!")
+
+    def show_popup(self, title, message):
+        content = BoxLayout(orientation='vertical')
+        content.add_widget(Label(text=message))
+        close_button = Button(text='Close', size_hint_y=None, height=40)
+        content.add_widget(close_button)
+
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(600, 300))
+        close_button.bind(on_press=popup.dismiss)
+        popup.open()
+    
+
     def open_view_budgets_page(self, instance):
         budgets_screen = self.screen_manager.get_screen("view_budgets")
         budgets_screen.load_budgets()
@@ -183,15 +268,7 @@ class ExpenseTracker(BoxLayout):
     def open_budget_page(self, instance):
         self.screen_manager.current = "budgets"
 
-    def show_popup(self, title, message):
-        content = BoxLayout(orientation='vertical')
-        content.add_widget(Label(text=message))
-        close_button = Button(text='Close', size_hint_y=None, height=40)
-        content.add_widget(close_button)
-
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(400, 200))
-        close_button.bind(on_press=popup.dismiss) # Bind close button to dismiss popup
-        popup.open()
+    
 
     def add_expense(self, instance):
         date = f"{self.year_spinner.text}-{self.month_spinner.text}-{self.day_spinner.text}"
@@ -206,22 +283,22 @@ class ExpenseTracker(BoxLayout):
             return
 
         try:
-            float(amount)  # Try to convert to float; will raise ValueError if not numeric
+            amount = float(amount)  # Convert amount to float and assign back to amount
         except ValueError:
             self.show_popup("Input Error", "Amount must be a numeric value.")
             return
 
         try:
             if hasattr(self, "selected_expense_id") and self.selected_expense_id:
-                cursor.execute("UPDATE expenses SET date=?, time=?, category=?, amount=?, description=? WHERE id=?",
-                            (date, time, category, float(amount), description, self.selected_expense_id))
-                conn.commit()
+                self.cursor.execute("UPDATE expenses SET date=?, time=?, category=?, amount=?, description=? WHERE id=?",
+                                    (date, time, category, amount, description, self.selected_expense_id))
+                self.conn.commit()
                 self.show_popup("Expense Updated", "Expense updated successfully!")
                 self.selected_expense_id = None
             else:
-                cursor.execute("INSERT INTO expenses (date, time, category, amount, description, expense_type) VALUES (?, ?, ?, ?, ?, ?)",
-                            (date, time, category, float(amount), description, expense_type))
-                conn.commit()
+                self.cursor.execute("INSERT INTO expenses (date, time, category, amount, description, expense_type) VALUES (?, ?, ?, ?, ?, ?)",
+                                    (date, time, category, amount, description, expense_type))
+                self.conn.commit()
                 self.show_popup(f"{expense_type} Added", f"{expense_type} added successfully!")
 
             self.amount_input.text = ""
@@ -230,6 +307,12 @@ class ExpenseTracker(BoxLayout):
             history_screen = self.screen_manager.get_screen("history")
             history_screen.load_history()
 
+            # Check budget after adding/updating expense
+            date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+            self.check_budget(date_obj, category, amount)
+
+        except sqlite3.Error as e:
+            self.show_popup("Database Error", f"Database error: {e}")
         except Exception as e:
             self.show_popup("Database Error", f"Error: {e}")
 
@@ -754,7 +837,7 @@ class ExpenseApp(App):
             sm.add_widget(HistoryScreen(name="history"))
             sm.add_widget(BudgetsScreen(name="budgets"))
             sm.add_widget(ViewBudgetsScreen(name="view_budgets"))
-            sm.get_screen("main").add_widget(ExpenseTracker(screen_manager=sm))
+            sm.get_screen("main").add_widget(ExpenseTracker(screen_manager=sm, cursor=cursor, conn=conn)) #added cursor and conn
 
             self.conn = conn  # Store the connection for later use
             return sm
