@@ -18,6 +18,8 @@ from collections import defaultdict
 import datetime
 from datetime import  timedelta
 import matplotlib.pyplot as plt
+from kivy.utils import get_color_from_hex
+
 
 
 
@@ -641,10 +643,12 @@ class ReportsScreen(Screen):
     def generate_reports(self, instance):
         self.chart_container.clear_widgets()
         self.summary_layout.clear_widgets()
+
         report_type = self.report_type.text
         start_date = self.start_date_input.text
         end_date = self.end_date_input.text
         data = self.fetch_expense_data(report_type, start_date, end_date)
+
         if data:
             pie_chart, bar_chart = self.create_charts(data)
             self.chart_container.add_widget(FigureCanvasKivyAgg(pie_chart))
@@ -653,31 +657,57 @@ class ReportsScreen(Screen):
             pie_summary = self.generate_pie_summary(data)
             bar_summary = self.generate_bar_summary(data)
 
-            # Create a horizontal BoxLayout for the summaries
-            summaries_box = BoxLayout(orientation='horizontal', spacing=100, padding=(10, 10, 10, 10)) # Increased vertical padding
+            # Layout for Summary Boxes
+            summaries_box = BoxLayout(orientation='horizontal', spacing=00, padding=(10, 00, 10, 0))
 
-            # Create Grid Layouts for summaries
-            pie_grid = GridLayout(cols=1, spacing=50, size_hint_x=0.5)
-            bar_grid = GridLayout(cols=1, spacing=50, size_hint_x=0.5)
+            # Pie Chart Summary Grid
+            pie_grid = GridLayout(cols=1, spacing=0, size_hint_x=0.5, padding=(10, 0))
 
-            # Add pie summary labels to grid
+            # Bar Chart Summary Grid
+            bar_grid = GridLayout(cols=1, spacing=0, size_hint_x=0.5, padding=(10, 0))
+
+            # Pie Chart Summary Title
+            pie_label = Label(text="[b][size=20]Pie Chart Summary[/size][/b]", markup=True, halign='center', size_hint_y=None, height=40)
+            pie_grid.add_widget(pie_label)
+
+            # Horizontal Divider
+            pie_grid.add_widget(Label(text="--------------------------------------", bold=True, size_hint_y=None, height=20))
+
             for line in pie_summary.split('\n'):
-                pie_grid.add_widget(Label(text=line, halign='left', valign='middle'))
+                if line:
+                    category, value_percentage = line.split(': ', 1) if ': ' in line else ("", line)
+                    label = Label(text=f"[b]{category}:[/b] {value_percentage}", markup=True, halign='left', valign='middle', size_hint_y=None, height=30)
+                    pie_grid.add_widget(label)
 
-            # Add bar summary labels to grid
+            # Bar Chart Summary Title
+            bar_label = Label(text="[b][size=20]Bar Chart Summary[/size][/b]", markup=True, halign='center', size_hint_y=None, height=40)
+            bar_grid.add_widget(bar_label)
+
+            # Horizontal Divider
+            bar_grid.add_widget(Label(text="--------------------------------------", bold=True, size_hint_y=None, height=20))
+
             for line in bar_summary.split('\n'):
-                bar_grid.add_widget(Label(text=line, halign='left', valign='middle'))
+                if line.strip():  # Ensure line is not empty
+                    if ': ' in line:
+                        category, value_percentage = line.split(': ', 1)
+                        label_text = f"[b]{category}:[/b] {value_percentage}"
+                    else:
+                        label_text = f"[b]{line}[/b]"  # Display without extra colon
+                    
+                    label = Label(text=label_text, markup=True, halign='left', valign='middle', size_hint_y=None, height=30)
+                    bar_grid.add_widget(label)
 
+
+            # Add Grids to the Summary Box
             summaries_box.add_widget(pie_grid)
             summaries_box.add_widget(bar_grid)
 
-            # Add Spacer
-            spacer = Label(size_hint_y=None, height=20) # Added spacer
+            # Add Spacing & Summaries to Layout
+            spacer = Label(size_hint_y=None, height=40)
             self.summary_layout.add_widget(spacer)
-
             self.summary_layout.add_widget(summaries_box)
 
-            # Adjust summary layout height based on content
+            # Adjust height based on content
             self.summary_layout.height = self.summary_layout.minimum_height
 
         else:
@@ -687,16 +717,20 @@ class ReportsScreen(Screen):
     def generate_pie_summary(self, data):
         if not data:
             return "No pie chart data available."
+
         total_expenses = sum(amount for _, amount in data)
         category_summaries = ""
+
         for category, amount in data:
             percentage = (amount / total_expenses) * 100
-            category_summaries += f"{category}: {amount} ({percentage:.2f}%)\n"
-        return f"Total Expenses: {total_expenses}\nCategory Breakdown:\n{category_summaries}"
+            category_summaries += f"{category}: [b]{amount:.2f} ({percentage:.2f}%)[/b]\n"
+
+        return f"{category_summaries}"
 
     def generate_bar_summary(self, data):
         if not data:
             return "No bar chart data available."
+
         total_expenses = sum(amount for _, amount in data)
         income = total_expenses * 1.2
         expense = total_expenses
@@ -704,9 +738,7 @@ class ReportsScreen(Screen):
         income_percentage = (income / (income + expense)) * 100
         expense_percentage = (expense / (income + expense)) * 100
 
-        return f"Total Income: {income:.2f} ({income_percentage:.2f}%)\nTotal Expense: {expense:.2f} ({expense_percentage:.2f}%)"
-
-
+        return f"[b]Total Income:[/b] {income:.2f} ({income_percentage:.2f}%)\n[b]Total Expense:[/b] {expense:.2f} ({expense_percentage:.2f}%)"
     
     def fetch_expense_data(self, report_type, start_date, end_date):
         conn = sqlite3.connect("expenses.db")
