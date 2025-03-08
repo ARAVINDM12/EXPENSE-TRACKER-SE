@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 
 
 
+
+
 # Set window background color
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Dark theme
 
@@ -653,31 +655,36 @@ class ReportsScreen(Screen):
             pie_summary = self.generate_pie_summary(data)
             bar_summary = self.generate_bar_summary(data)
 
-            # Create a horizontal BoxLayout for the summaries
-            summaries_box = BoxLayout(orientation='horizontal', spacing=100, padding=(10, 10, 10, 10)) # Increased vertical padding
+            summaries_box = BoxLayout(orientation='horizontal', spacing=100, padding=(20, 20, 20, 20))
 
-            # Create Grid Layouts for summaries
-            pie_grid = GridLayout(cols=1, spacing=50, size_hint_x=0.5)
-            bar_grid = GridLayout(cols=1, spacing=50, size_hint_x=0.5)
+            pie_grid = GridLayout(cols=1, spacing=10, size_hint_x=0.5)
+            bar_grid = GridLayout(cols=1, spacing=10, size_hint_x=0.5)
 
-            # Add pie summary labels to grid
+            # Enhanced Pie Summary
+            pie_label = Label(text="Pie Chart Summary", bold=True, font_size=18, halign='center')
+            pie_grid.add_widget(pie_label)
             for line in pie_summary.split('\n'):
-                pie_grid.add_widget(Label(text=line, halign='left', valign='middle'))
+                if line:
+                    category, value_percentage = line.split(': ', 1) if ': ' in line else ("", line) #Split into Category and value
+                    label = Label(text=f"[b]{category}:[/b] {value_percentage}", markup=True, halign='left', valign='middle', size_hint_y=None, height=30)
+                    pie_grid.add_widget(label)
 
-            # Add bar summary labels to grid
+            # Enhanced Bar Summary
+            bar_label = Label(text="Bar Chart Summary", bold=True, font_size=18, halign='center')
+            bar_grid.add_widget(bar_label)
             for line in bar_summary.split('\n'):
-                bar_grid.add_widget(Label(text=line, halign='left', valign='middle'))
+                if line:
+                    category, value_percentage = line.split(': ', 1) if ': ' in line else ("", line)
+                    label = Label(text=f"[b]{category}:[/b] {value_percentage}", markup=True, halign='left', valign='middle', size_hint_y=None, height=30)
+                    bar_grid.add_widget(label)
 
             summaries_box.add_widget(pie_grid)
             summaries_box.add_widget(bar_grid)
 
-            # Add Spacer
-            spacer = Label(size_hint_y=None, height=20) # Added spacer
+            spacer = Label(size_hint_y=None, height=40)
             self.summary_layout.add_widget(spacer)
 
             self.summary_layout.add_widget(summaries_box)
-
-            # Adjust summary layout height based on content
             self.summary_layout.height = self.summary_layout.minimum_height
 
         else:
@@ -691,8 +698,8 @@ class ReportsScreen(Screen):
         category_summaries = ""
         for category, amount in data:
             percentage = (amount / total_expenses) * 100
-            category_summaries += f"{category}: {amount} ({percentage:.2f}%)\n"
-        return f"Total Expenses: {total_expenses}\nCategory Breakdown:\n{category_summaries}"
+            category_summaries += f"{category}: {amount:.2f} ({percentage:.2f}%)\n"
+        return f"Total Expenses: {total_expenses:.2f}\n{category_summaries}"
 
     def generate_bar_summary(self, data):
         if not data:
@@ -705,8 +712,6 @@ class ReportsScreen(Screen):
         expense_percentage = (expense / (income + expense)) * 100
 
         return f"Total Income: {income:.2f} ({income_percentage:.2f}%)\nTotal Expense: {expense:.2f} ({expense_percentage:.2f}%)"
-
-
     
     def fetch_expense_data(self, report_type, start_date, end_date):
         conn = sqlite3.connect("expenses.db")
