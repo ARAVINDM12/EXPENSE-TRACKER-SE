@@ -10,7 +10,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.spinner import Spinner
 from kivy.core.window import Window
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle,Rectangle
 from kivy.uix.screenmanager import ScreenManager, Screen
 from datetime import datetime
 from kivy.uix.popup import Popup
@@ -18,6 +18,8 @@ from collections import defaultdict
 import datetime
 from datetime import  timedelta
 import matplotlib.pyplot as plt
+
+
 
 # Set window background color
 Window.clearcolor = (0.1, 0.1, 0.1, 1)  # Dark theme
@@ -558,14 +560,19 @@ class ReportsScreen(Screen):
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
 
         # Title Label (Always on top)
-        main_layout.add_widget(Label(text="Expense Reports", font_size=24, bold=True, size_hint_y=None, height=50))
+        main_layout.add_widget(Label(text="EXPENSE REPORTS", font_size=24, bold=True, size_hint_y=None, height=75))
 
         # Charts Box (STRICTLY HALF THE SCREEN)
-        self.chart_container = BoxLayout(orientation='horizontal', size_hint_y=0.5, spacing=10)
+        self.chart_container = BoxLayout(orientation='horizontal', size_hint_y=0.4, spacing=10)
         main_layout.add_widget(self.chart_container)
 
+        # Summary Layout (Centered, fills remaining space)
+        self.summary_layout = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=0.2)
+        main_layout.add_widget(self.summary_layout)
+
         # Lower Section (Filters + Buttons)
-        lower_section = BoxLayout(orientation='vertical', size_hint_y=0.5, spacing=10)
+        lower_section = BoxLayout(orientation='vertical', size_hint_y=0.4, spacing=10)
+        
 
         # Filters Layout (Period Selection & Date Inputs)
         filter_layout = BoxLayout(size_hint_y=None, height=40, spacing=10)
@@ -633,6 +640,7 @@ class ReportsScreen(Screen):
 
     def generate_reports(self, instance):
         self.chart_container.clear_widgets()
+        self.summary_layout.clear_widgets()
         report_type = self.report_type.text
         start_date = self.start_date_input.text
         end_date = self.end_date_input.text
@@ -641,10 +649,65 @@ class ReportsScreen(Screen):
             pie_chart, bar_chart = self.create_charts(data)
             self.chart_container.add_widget(FigureCanvasKivyAgg(pie_chart))
             self.chart_container.add_widget(FigureCanvasKivyAgg(bar_chart))
+
+            pie_summary = self.generate_pie_summary(data)
+            bar_summary = self.generate_bar_summary(data)
+
+            # Create a horizontal BoxLayout for the summaries
+            summaries_box = BoxLayout(orientation='horizontal', spacing=100, padding=(10, 10, 10, 10)) # Increased vertical padding
+
+            # Create Grid Layouts for summaries
+            pie_grid = GridLayout(cols=1, spacing=50, size_hint_x=0.5)
+            bar_grid = GridLayout(cols=1, spacing=50, size_hint_x=0.5)
+
+            # Add pie summary labels to grid
+            for line in pie_summary.split('\n'):
+                pie_grid.add_widget(Label(text=line, halign='left', valign='middle'))
+
+            # Add bar summary labels to grid
+            for line in bar_summary.split('\n'):
+                bar_grid.add_widget(Label(text=line, halign='left', valign='middle'))
+
+            summaries_box.add_widget(pie_grid)
+            summaries_box.add_widget(bar_grid)
+
+            # Add Spacer
+            spacer = Label(size_hint_y=None, height=20) # Added spacer
+            self.summary_layout.add_widget(spacer)
+
+            self.summary_layout.add_widget(summaries_box)
+
+            # Adjust summary layout height based on content
+            self.summary_layout.height = self.summary_layout.minimum_height
+
         else:
             popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
             popup.open()
 
+    def generate_pie_summary(self, data):
+        if not data:
+            return "No pie chart data available."
+        total_expenses = sum(amount for _, amount in data)
+        category_summaries = ""
+        for category, amount in data:
+            percentage = (amount / total_expenses) * 100
+            category_summaries += f"{category}: {amount} ({percentage:.2f}%)\n"
+        return f"Total Expenses: {total_expenses}\nCategory Breakdown:\n{category_summaries}"
+
+    def generate_bar_summary(self, data):
+        if not data:
+            return "No bar chart data available."
+        total_expenses = sum(amount for _, amount in data)
+        income = total_expenses * 1.2
+        expense = total_expenses
+
+        income_percentage = (income / (income + expense)) * 100
+        expense_percentage = (expense / (income + expense)) * 100
+
+        return f"Total Income: {income:.2f} ({income_percentage:.2f}%)\nTotal Expense: {expense:.2f} ({expense_percentage:.2f}%)"
+
+
+    
     def fetch_expense_data(self, report_type, start_date, end_date):
         conn = sqlite3.connect("expenses.db")
         cursor = conn.cursor()
