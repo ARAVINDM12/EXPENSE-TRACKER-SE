@@ -1,4 +1,5 @@
 import sqlite3
+import csv
 from kivy_garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -19,6 +20,7 @@ import datetime
 from datetime import  timedelta
 import matplotlib.pyplot as plt
 from kivy.utils import get_color_from_hex
+from fpdf import FPDF
 
 
 
@@ -629,6 +631,7 @@ class ReportsScreen(Screen):
         main_layout.add_widget(lower_section)
         self.add_widget(main_layout)
 
+    
         # Generate default daily report
         self.generate_reports(None)
 
@@ -772,19 +775,116 @@ class ReportsScreen(Screen):
 
     def create_charts(self, data):
         categories, values = zip(*data) if data else ([], [])
+
+        # Pie Chart with Black Background and White Text
         fig1, ax1 = plt.subplots(figsize=(4, 4))
-        ax1.pie(values, labels=categories, autopct='%1.1f%%', startangle=140)
-        ax1.set_title("Category-wise Expense Breakdown")
+        ax1.pie(values, labels=categories, autopct='%1.1f%%', startangle=140, textprops={'color': 'white'})  # White text
+        ax1.set_title("Category-wise Expense Breakdown", color='white')  # White title
+        ax1.set_facecolor('black')  # Black background
+        fig1.patch.set_facecolor('black')  # Black figure background
+
+        # Bar Chart with Black Background and White Text
         fig2, ax2 = plt.subplots()
-        ax2.bar(["Total Income", "Total Expense"], [sum(values), sum(values) * 1.2], color=["green", "red"])
-        ax2.set_title("Total Income vs Expense")
+        ax2.bar(["Total Income", "Total Expense"], [sum(values) * 1.2, sum(values)], color=["green", "red"])
+        ax2.set_title("Total Income vs Expense", color='white')  # White title
+        ax2.set_facecolor('black')  # Black background
+        fig2.patch.set_facecolor('black')  # Black figure background
+
+        # Set tick and axis label colors to white
+        ax2.tick_params(axis='x', colors='white')
+        ax2.tick_params(axis='y', colors='white')
+        ax2.xaxis.label.set_color('white')
+        ax2.yaxis.label.set_color('white')
+
         return fig1, fig2
 
     def export_csv(self, instance):
-        pass
+        report_type = self.report_type.text
+        start_date = self.start_date_input.text
+        end_date = self.end_date_input.text
+        data = self.fetch_expense_data(report_type, start_date, end_date)  # Fetch the data
+
+        if data:
+            # 1. Determine the filename
+            filename = f"expense_report_{report_type}_{start_date}_{end_date}.csv"  # Example filename
+
+            # 2. Open the CSV file in write mode
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+
+                # 3. Write the header row (if needed)
+                if report_type == "category":  # Example: Add header for category report
+                    writer.writerow(["Category", "Amount", "Percentage"])
+                elif report_type == "income_vs_expense":
+                    writer.writerow(["Type", "Amount", "Percentage"])
+
+                # 4. Write the data rows
+                for row in data:
+                    writer.writerow(row)  # Assuming 'data' is a list of lists or tuples
+
+            # (Optional) Display a success message or open the file
+            popup = Popup(title="Success", content=Label(text=f"Report exported to {filename}"), size_hint=(0.6, 0.3))
+            popup.open()
+        else:
+            # Show "No Data" popup (you already have this part)
+            popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
+            popup.open()
 
     def export_pdf(self, instance):
-        pass
+        report_type = self.report_type.text
+        start_date = self.start_date_input.text
+        end_date = self.end_date_input.text
+        data = self.fetch_expense_data(report_type, start_date, end_date)
+
+        if data:
+            # 1. Create a PDF object
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+
+            # 2. Add title
+            pdf.cell(200, 10, txt=f"Expense Report ({report_type})", ln=True, align="C")
+            pdf.cell(200, 10, txt=f"From {start_date} to {end_date}", ln=True, align="C")
+
+            # 3. Add summary data to the PDF
+            pie_summary = self.generate_pie_summary(data)
+            bar_summary = self.generate_bar_summary(data)
+
+            pdf.ln(10)  # Add some space
+
+            # Add Pie Chart Summary
+            pdf.cell(200, 10, txt="Pie Chart Summary", ln=True, align="L")
+            for line in pie_summary.split('\n'):
+                pdf.cell(200, 10, txt=line, ln=True, align="L")
+
+            pdf.ln(10)
+
+            # Add Bar Chart Summary
+            pdf.cell(200, 10, txt="Bar Chart Summary", ln=True, align="L")
+            for line in bar_summary.split('\n'):
+                pdf.cell(200, 10, txt=line, ln=True, align="L")
+
+            # 4. Add charts to the PDF
+            pie_chart, bar_chart = self.create_charts(data)
+            pie_chart_path = "pie_chart.png"
+            bar_chart_path = "bar_chart.png"
+            pie_chart.savefig(pie_chart_path)
+            bar_chart.savefig(bar_chart_path)
+
+            pdf.image(pie_chart_path, x=10, y=100, w=100)
+            pdf.image(bar_chart_path, x=110, y=100, w=100)
+
+            # 5. Save the PDF
+            pdf_filename = f"expense_report_{report_type}_{start_date}_{end_date}.pdf"
+            pdf.output(pdf_filename)
+
+            # (Optional) Display a success message or open the file
+            popup = Popup(title="Success", content=Label(text=f"Report exported to {pdf_filename}"), size_hint=(0.6, 0.3))
+            popup.open()
+        else:
+            # Show "No Data" popup (you already have this part)
+            popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
+            popup.open()
 
     def go_back(self, instance):
         self.manager.current = 'main'
