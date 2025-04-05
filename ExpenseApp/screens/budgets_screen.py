@@ -12,8 +12,8 @@ class BudgetsScreen(Screen):
         input_layout = GridLayout(cols=2, spacing=15, size_hint_y=None, height=200)
         input_style = {'size_hint_y': None, 'height': 50, 'font_size': 18, 'foreground_color': (0.9, 0.9, 0.9, 1),
                        'background_color': (0, 0, 0, 1), 'padding': [15, 15], 'halign': 'center'}
-        self.budget_type_spinner = ModernSpinner(text="Daily", values=("Daily", "Weekly", "Monthly", "Yearly"), size_hint_y=None, height=50)
-        self.budget_category_spinner = ModernSpinner(text="All", values=("All", "Food", "Transport", "Shopping", "Entertainment", "Bills", "Others"), size_hint_y=None, height=50)
+        self.budget_type_spinner = ModernSpinner(text="Select Range", values=("Daily", "Weekly", "Monthly", "Yearly"), size_hint_y=None, height=50)
+        self.budget_category_spinner = ModernSpinner(text="Category", values=("All", "Food", "Transport", "Shopping", "Entertainment", "Bills", "Others"), size_hint_y=None, height=50)
         self.budget_amount_input = TextInput(hint_text="Budget Amount",**input_style)
 
         input_layout.add_widget(CustomLabel(text="Budget Type:"))
@@ -29,7 +29,7 @@ class BudgetsScreen(Screen):
         set_budget_button.bind(on_press=self.set_budget)
         layout.add_widget(set_budget_button)
 
-        back_button = Button(text="Back", size_hint_y=None, height=50, background_color = (1, 0, 0, 1))
+        back_button = Button(text="Back", size_hint_y=None, height=50, background_color = (0, 0, 1, 1))
         back_button.bind(on_press=self.go_back)
         layout.add_widget(back_button)
 
@@ -49,6 +49,11 @@ class BudgetsScreen(Screen):
             self.show_popup("budget added","budget added successfully")
         except:
             self.show_popup("error", "invalid amount")
+        
+        self.budget_amount_input.text = ""
+        self.budget_type_spinner.text = "Range"
+        self.budget_category_spinner.text = "Category"
+
 
     def go_back(self, instance):
         self.manager.current = "main"

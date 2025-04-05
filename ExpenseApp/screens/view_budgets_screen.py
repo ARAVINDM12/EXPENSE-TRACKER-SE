@@ -16,7 +16,7 @@ class ViewBudgetsScreen(Screen):
 
         layout.add_widget(scroll_view)
 
-        back_button = Button(text="Back", size_hint_y=None, height=50, background_color=(0.2, 0.6, 1, 1))
+        back_button = Button(text="Back", size_hint_y=None, height=50, background_color=(0, 0, 1, 1))
         back_button.bind(on_press=self.go_back)
         layout.add_widget(back_button)
 

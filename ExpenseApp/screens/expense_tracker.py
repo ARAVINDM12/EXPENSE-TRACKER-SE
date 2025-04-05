@@ -65,7 +65,7 @@ class ExpenseTracker(BoxLayout):
         self.desc_input = TextInput(hint_text='Description', **input_style)
         # Expense Type Dropdown
         self.expense_type_spinner = ModernSpinner(
-            text="Expense",
+            text="Expense/Income",
             values=("Expense", "Income"),
         )
         input_layout.add_widget(CustomLabel(text='Amount:'))
@@ -236,7 +236,9 @@ class ExpenseTracker(BoxLayout):
                                     (date, time, category, amount, description, expense_type))
                 self.conn.commit()
                 self.show_popup(f"{expense_type} Added", f"{expense_type} added successfully!")
-
+            
+            self.expense_type_spinner="Expense/Income"
+            self.category_spinner.text = "Select Category"
             self.amount_input.text = ""
             self.desc_input.text = ""
 
@@ -296,6 +298,9 @@ class ExpenseTracker(BoxLayout):
 
 
 
+    def clear_fields(self, *fields):
+        for field in fields:
+            field.text = ""
 
     def update_expense(self, instance):
         if not hasattr(self, "selected_expense_id") or not self.selected_expense_id:

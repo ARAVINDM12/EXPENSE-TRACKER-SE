@@ -21,49 +21,7 @@ from datetime import  timedelta
 import matplotlib.pyplot as plt
 from kivy.utils import get_color_from_hex
 from fpdf import FPDF
-from kivy.uix.dropdown import DropDown
 
-class ModernDropDown(DropDown):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.auto_width = True
-        #self.width = 200  # Set a fixed width
-
-    def add_widget(self, widget, index=0, canvas=None):
-        # Apply styling to the buttons in the dropdown
-        if isinstance(widget, Button):
-            widget.background_normal = ''
-            widget.background_color = (0.1, 0.1, 0.1, 1)  # Dark background
-            widget.color = (0.9, 0.9, 0.9, 1)  # Light text color
-            widget.font_size = 16
-            widget.padding = [15, 15]
-
-            with widget.canvas.before:
-                Color(0.2, 0.2, 0.2, 1)  # Darker border color
-                RoundedRectangle(pos=widget.pos, size=widget.size, radius=[10])
-
-        return super().add_widget(widget, index=index, canvas=canvas)
-    
-class ModernSpinner(Spinner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.background_color = (0.1, 0.1, 0.1, 1)  # Dark background
-        self.color = (0.9, 0.9, 0.9, 1)  # Light text color
-        self.font_size = 18
-        self.padding = [15, 15]
-        self.size_hint_y = None
-        self.height = 50
-
-        with self.canvas.before:
-            Color(0.2, 0.2, 0.2, 1)  # Darker border color
-            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
-
-        self.bind(pos=self.update_rect, size=self.update_rect)
-        self.dropdown_cls = ModernDropDown  # Assign the custom dropdown class
-
-    def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
 
 
 
@@ -86,20 +44,16 @@ conn.commit()
 class StylishLabel(Label):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.font_size = 42  # Slightly larger font size
+        self.font_size = 45  # Bigger font for better visibility
         self.bold = True
-        self.color = (0.1, 0.1, 0.1, 1)  # Darker gray text
+        self.color = (0.9, 0.9, 0.9, 1)  # Soft white text
         self.size_hint_y = None
-        self.height = 80  # Slightly taller
+        self.height = 90
 
         with self.canvas.before:
-            Color(0.95, 0.95, 0.95, 1)  # Lighter gray background
-            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[15])  # Slightly more rounded corners
-
-            # Subtle shadow with a bit more offset
-            Color(0, 0, 0, 0.15)  # Lighter shadow
-            RoundedRectangle(pos=(self.x + 5, self.y - 5), size=(self.width - 10, self.height - 10), radius=[15])
-
+            Color(0.15, 0.15, 0.15, 1)  # Dark gray background
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
+        
         self.bind(pos=self.update_graphics, size=self.update_graphics)
 
     def update_graphics(self, *args):
@@ -110,35 +64,24 @@ class CustomLabel(Label):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.size_hint_y = None
-        self.height = 50  # Increased height for more space
-        self.font_size = 20  # Slightly larger font size
-        self.color = (1, 1, 1, 1)  # White text
+        self.height = 50
+        self.font_size = 18
+        self.color = (0, 1, 1, 1)  # Bright cyan text
         self.bold = True
-        self.padding = (25, 20)  # More padding for better spacing
-
         with self.canvas.before:
-            # Solid background color
-            Color(0.15, 0.15, 0.15, 1)  # Slightly darker gray
-            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[20])  # Larger radius for smoother corners
-
-            # Inner shadow
-            Color(0, 0, 0, 0.3)  # Semi-transparent black
-            self.shadow = Rectangle(pos=self.pos, size=self.size)
-
-        self.bind(pos=self.update_graphics, size=self.update_graphics)
-
-    def update_graphics(self, *args):
+            Color(0.2, 0.2, 0.2, 1)
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
+        self.bind(pos=self.update_rect, size=self.update_rect)
+    
+    def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
-        self.shadow.pos = (self.x + 5, self.y - 5)  # Offset the shadow slightly
-        self.shadow.size = (self.width, self.height)  # Make the shadow slightly smaller
 
 
 
 class ExpenseTracker(BoxLayout):
     def __init__(self, screen_manager, cursor, conn, **kwargs): # Added cursor and conn
         super().__init__(orientation='vertical', padding=50, spacing=20, **kwargs)
-        self.background_color = '#262626'
         self.screen_manager = screen_manager
         self.cursor = cursor # Added this line
         self.conn = conn # Added this line
@@ -158,13 +101,13 @@ class ExpenseTracker(BoxLayout):
 
         # Input Layout
         input_layout = GridLayout(cols=2, spacing=15, size_hint_y=None, height=350)
-        input_style = {'size_hint_y': None, 'height': 50, 'font_size': 18, 'foreground_color': (0.9, 0.9, 0.9, 1),
-                       'background_color': (0, 0, 0, 1), 'padding': [15, 15], 'halign': 'center'}
+        input_style = {'size_hint_y': None, 'height': 50, 'font_size': 18, 'foreground_color': (1, 1, 1, 1),
+                       'background_color': (0.4, 0.4, 0.4, 1), 'padding': [15, 15], 'halign': 'center'}
 
         # Date Selection
-        self.day_spinner = ModernSpinner(text=current_day, values=[str(i).zfill(2) for i in range(1, 32)])
-        self.month_spinner = ModernSpinner(text=current_month, values=[str(i).zfill(2) for i in range(1, 13)])
-        self.year_spinner = ModernSpinner(text=current_year, values=[str(i) for i in range(2000, 2051)])
+        self.day_spinner = Spinner(text=current_day, values=[str(i).zfill(2) for i in range(1, 32)], size_hint_y=None, height=50)
+        self.month_spinner = Spinner(text=current_month, values=[str(i).zfill(2) for i in range(1, 13)], size_hint_y=None, height=50)
+        self.year_spinner = Spinner(text=current_year, values=[str(i) for i in range(2000, 2051)], size_hint_y=None, height=50)
 
         date_layout = GridLayout(cols=3, spacing=5, size_hint_y=None, height=50)
         date_layout.add_widget(self.day_spinner)
@@ -175,9 +118,9 @@ class ExpenseTracker(BoxLayout):
         input_layout.add_widget(date_layout)
 
         # Time Selection
-        self.hour_spinner = ModernSpinner(text=current_hour, values=[str(i).zfill(2) for i in range(1, 13)])
-        self.minute_spinner = ModernSpinner(text=current_minute, values=[str(i).zfill(2) for i in range(0, 60)])
-        self.ampm_spinner = ModernSpinner(text=current_ampm, values=['AM', 'PM'])
+        self.hour_spinner = Spinner(text=current_hour, values=[str(i).zfill(2) for i in range(1, 13)], size_hint_y=None, height=50)
+        self.minute_spinner = Spinner(text=current_minute, values=[str(i).zfill(2) for i in range(0, 60)], size_hint_y=None, height=50)
+        self.ampm_spinner = Spinner(text=current_ampm, values=['AM', 'PM'], size_hint_y=None, height=50)
 
         time_layout = GridLayout(cols=3, spacing=5, size_hint_y=None, height=50)
         time_layout.add_widget(self.hour_spinner)
@@ -188,18 +131,20 @@ class ExpenseTracker(BoxLayout):
         input_layout.add_widget(time_layout)
 
         # Category Dropdown
-        self.category_spinner = ModernSpinner(text='Select Category', values=('Food', 'Transport', 'Shopping', 'Entertainment', 'Bills', 'Others'),
+        self.category_spinner = Spinner(text='Select Category', values=('Food', 'Transport', 'Shopping', 'Entertainment', 'Bills', 'Others'),
                                          size_hint_y=None, height=50)
         input_layout.add_widget(CustomLabel(text='Category:'))
         input_layout.add_widget(self.category_spinner)
 
         # Amount and Description Fields
-        self.amount_input = TextInput(hint_text='Amount',**input_style)
+        self.amount_input = TextInput(hint_text='Amount', **input_style)
         self.desc_input = TextInput(hint_text='Description', **input_style)
         # Expense Type Dropdown
-        self.expense_type_spinner = ModernSpinner(
+        self.expense_type_spinner = Spinner(
             text="Expense",
             values=("Expense", "Income"),
+            size_hint_y=None,
+            height=50
         )
         input_layout.add_widget(CustomLabel(text='Amount:'))
         input_layout.add_widget(self.amount_input)
@@ -212,25 +157,25 @@ class ExpenseTracker(BoxLayout):
 
         # Buttons
         button_layout = GridLayout(cols=4, spacing=15, size_hint_y=None, height=60)  # changed to 4 columns.
-        self.add_button = Button(text='Add',background_normal='',background_color=(0, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.add_button = Button(text='Add', background_color=(0, 0.8, 0.2, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.add_button.bind(on_press=self.add_expense)
 
-        self.update_button = Button(text='Update',background_normal='', background_color=(0, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.update_button = Button(text='Update', background_color=(1, 0.6, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.update_button.bind(on_press=self.open_history_page)
 
-        self.delete_button = Button(text='Delete',background_normal='', background_color=(0, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.delete_button = Button(text='Delete', background_color=(1, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.delete_button.bind(on_press=self.open_history_page)  # Change function to open history
 
-        self.history_button = Button(text='View History', background_normal='',background_color=(0, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.history_button = Button(text='View History', background_color=(0.2, 0.4, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.history_button.bind(on_press=self.view_history)
 
-        self.budget_button = Button(text='Set Budget',background_normal='',background_color=(0, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.budget_button = Button(text='Set Budget', background_color=(0.8, 0.4, 0.2, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.budget_button.bind(on_press=self.open_budget_page)  # new button and binding.
 
-        self.view_budget_button = Button(text='View Budgets',background_normal='', background_color=(0, 0, 0, 1), font_size=18, bold=True, size_hint_y=None, height=50)
+        self.view_budget_button = Button(text='View Budgets', background_color=(0.4, 0.6, 0.8, 1), font_size=18, bold=True, size_hint_y=None, height=50)
         self.view_budget_button.bind(on_press=self.open_view_budgets_page)  # new button and binding.
 
-        self.reports_button = Button(text='Generate Reports',background_normal='', background_color=(0, 0, 0, 1),font_size=18, bold=True, size_hint_y=None, height=50)
+        self.reports_button = Button(text='Generate Reports', background_color=(0, 1, 0, 1),font_size=18, bold=True, size_hint_y=None, height=50)
         self.reports_button.bind(on_press=self.open_reports_page)  # Bind to the function
 
         button_layout.add_widget(self.add_button)
@@ -835,15 +780,15 @@ class ReportsScreen(Screen):
         fig1, ax1 = plt.subplots(figsize=(4, 4))
         ax1.pie(values, labels=categories, autopct='%1.1f%%', startangle=140, textprops={'color': 'white'})  # White text
         ax1.set_title("Category-wise Expense Breakdown", color='white')  # White title
-        ax1.set_facecolor('#262626')  # Black background
-        fig1.patch.set_facecolor('#262626')  # Black figure background
+        ax1.set_facecolor('black')  # Black background
+        fig1.patch.set_facecolor('black')  # Black figure background
 
         # Bar Chart with Black Background and White Text
         fig2, ax2 = plt.subplots()
         ax2.bar(["Total Income", "Total Expense"], [sum(values) * 1.2, sum(values)], color=["green", "red"])
         ax2.set_title("Total Income vs Expense", color='white')  # White title
-        ax2.set_facecolor('#262626')  # Black background
-        fig2.patch.set_facecolor('#262626')  # Black figure background
+        ax2.set_facecolor('black')  # Black background
+        fig2.patch.set_facecolor('black')  # Black figure background
 
         # Set tick and axis label colors to white
         ax2.tick_params(axis='x', colors='white')
@@ -951,7 +896,7 @@ class HistoryScreen(Screen):
         layout = BoxLayout(orientation='vertical', padding=20, spacing=10, size_hint=(1, 1)) # Add size_hint
 
         # Header
-        layout.add_widget(StylishLabel(text="EXPENSE HISTORY"))
+        layout.add_widget(StylishLabel(text="Expense History"))
         # Total Expense, Income, Net Labels in a Horizontal BoxLayout
         totals_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=50) #Horizontal boxlayout for totals.
         # Total Expense Label
