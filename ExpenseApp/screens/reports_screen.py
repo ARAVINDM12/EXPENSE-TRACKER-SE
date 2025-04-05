@@ -71,7 +71,7 @@ class ReportsScreen(Screen):
         lower_section.add_widget(button_layout)
 
         # Back Button (Smaller Height)
-        back_button = Button(text="Back", size_hint_x=1, size_hint_y=None, height=50, background_color=(1, 0, 0, 1))
+        back_button = Button(text="Back", size_hint_x=1, size_hint_y=None, height=50, background_color=(0, 0, 1, 1))
         back_button.bind(on_press=self.go_back)
         lower_section.add_widget(back_button)
 
@@ -79,8 +79,10 @@ class ReportsScreen(Screen):
         self.add_widget(main_layout)
 
     
-        # Generate default daily report
-        self.generate_reports(None)
+        def on_enter(self):
+            # Generate the default report when the screen is entered
+            self.generate_reports(None)
+
 
     def on_report_type_change(self, spinner, text):
         if text == "Custom":
@@ -173,7 +175,8 @@ class ReportsScreen(Screen):
 
         for category, amount in data:
             percentage = (amount / total_expenses) * 100
-            category_summaries += f"{category}: [b]{amount:.2f} ({percentage:.2f}%)[/b]\n"
+            category_summaries += f"{category}: {amount:.2f} ({percentage:.2f}%)\n"
+
 
         return f"{category_summaries}"
 
@@ -188,7 +191,10 @@ class ReportsScreen(Screen):
         income_percentage = (income / (income + expense)) * 100
         expense_percentage = (expense / (income + expense)) * 100
 
-        return f"[b]Total Income:[/b] {income:.2f} ({income_percentage:.2f}%)\n[b]Total Expense:[/b] {expense:.2f} ({expense_percentage:.2f}%)"
+        return f"Total Income: {income:.2f} ({income_percentage:.2f}%)\nTotal Expense: {expense:.2f} ({expense_percentage:.2f}%)"
+
+
+
     
     def fetch_expense_data(self, report_type, start_date, end_date):
         conn = sqlite3.connect("expenses.db")
@@ -247,47 +253,95 @@ class ReportsScreen(Screen):
 
     def export_csv(self, instance):
         report_type = self.report_type.text
-        start_date = self.start_date_input.text
-        end_date = self.end_date_input.text
-        data = self.fetch_expense_data(report_type, start_date, end_date)  # Fetch the data
+        if report_type == "Daily":
+            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Weekly":
+            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Monthly":
+            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Yearly":
+            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Custom":
+            start_date = self.start_date_input.text
+            end_date = self.end_date_input.text
+        try:
+            conn = sqlite3.connect("expenses.db")
+            cursor = conn.cursor()
 
-        if data:
-            # 1. Determine the filename
-            filename = f"expense_report_{report_type}_{start_date}_{end_date}.csv"  # Example filename
+            # Fetch all records ordered by date and time (descending)
+            cursor.execute(
+            "SELECT date, time, category, amount, description, expense_type "
+            "FROM expenses "
+            "WHERE date BETWEEN ? AND ? "
+            "ORDER BY date DESC, time DESC",
+            (start_date, end_date), #parameters for the where clause.
+            )
+            records = cursor.fetchall()
+            conn.close()
 
-            # 2. Open the CSV file in write mode
-            with open(filename, 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile)
+            if records:
+                filename = f"expense_report_{report_type}_{start_date}_{end_date}.csv"
 
-                # 3. Write the header row (if needed)
-                if report_type == "category":  # Example: Add header for category report
-                    writer.writerow(["Category", "Amount", "Percentage"])
-                elif report_type == "income_vs_expense":
-                    writer.writerow(["Type", "Amount", "Percentage"])
+                # Write data to CSV
+                with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
 
-                # 4. Write the data rows
-                for row in data:
-                    writer.writerow(row)  # Assuming 'data' is a list of lists or tuples
+                    # Write header
+                    writer.writerow(["Date", "Time", "Category", "Amount", "Description", "Expense Type"])
+                    writer.writerow(["","","","","",""])
+                    # Write rows
+                    for row in records:
+                        writer.writerow(row)
 
-            # (Optional) Display a success message or open the file
-            popup = Popup(title="Success", content=Label(text=f"Report exported to {filename}"), size_hint=(0.6, 0.3))
-            popup.open()
-        else:
-            # Show "No Data" popup (you already have this part)
-            popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
-            popup.open()
+                popup = Popup(
+                    title="Success",
+                    content=Label(text=f"History exported to {filename}"),
+                    size_hint=(0.6, 0.3)
+                )
+                popup.open()
+            else:
+                popup = Popup(
+                    title="No Data",
+                    content=Label(text="No expense history to export."),
+                    size_hint=(0.6, 0.3)
+                )
+                popup.open()
+        except Exception as e:
+            print(f"Error exporting CSV: {e}")
+            popup = Popup(
+                title="Error",
+                content=Label(text="Failed to export CSV."),
+                size_hint=(0.6, 0.3)
+            )
+            popup.open() 
+
 
     def export_pdf(self, instance):
         report_type = self.report_type.text
-        start_date = self.start_date_input.text
-        end_date = self.end_date_input.text
+        if report_type == "Daily":
+            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Weekly":
+            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Monthly":
+            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Yearly":
+            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Custom":
+            start_date = self.start_date_input.text
+            end_date = self.end_date_input.text
         data = self.fetch_expense_data(report_type, start_date, end_date)
 
         if data:
             # 1. Create a PDF object
             pdf = FPDF()
             pdf.add_page()
-            pdf.set_font("Arial", size=12)
+            pdf.set_font("Arial","B",size=12)
 
             # 2. Add title
             pdf.cell(200, 10, txt=f"Expense Report ({report_type})", ln=True, align="C")
@@ -318,8 +372,8 @@ class ReportsScreen(Screen):
             pie_chart.savefig(pie_chart_path)
             bar_chart.savefig(bar_chart_path)
 
-            pdf.image(pie_chart_path, x=10, y=100, w=100)
-            pdf.image(bar_chart_path, x=110, y=100, w=100)
+            pdf.image(pie_chart_path, x=10, y=150, w=100)
+            pdf.image(bar_chart_path, x=110, y=150, w=100)
 
             # 5. Save the PDF
             pdf_filename = f"expense_report_{report_type}_{start_date}_{end_date}.pdf"

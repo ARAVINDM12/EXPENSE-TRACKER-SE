@@ -1,5 +1,6 @@
 import sqlite3
 import csv
+from kivy.uix.image import Image
 from kivy_garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -23,3 +24,5 @@ from kivy.utils import get_color_from_hex
 from fpdf import FPDF
 from kivy.uix.dropdown import DropDown
 from dateutil.relativedelta import relativedelta
+from kivy.clock import Clock
+from kivy.uix.floatlayout import FloatLayout
