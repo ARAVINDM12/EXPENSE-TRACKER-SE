@@ -65,7 +65,7 @@ class ExpenseTracker(BoxLayout):
         self.desc_input = TextInput(hint_text='Description', **input_style)
         # Expense Type Dropdown
         self.expense_type_spinner = ModernSpinner(
-            text="Expense/Income",
+            text="Expense",
             values=("Expense", "Income"),
         )
         input_layout.add_widget(CustomLabel(text='Amount:'))
@@ -237,7 +237,6 @@ class ExpenseTracker(BoxLayout):
                 self.conn.commit()
                 self.show_popup(f"{expense_type} Added", f"{expense_type} added successfully!")
             
-            self.expense_type_spinner="Expense/Income"
             self.category_spinner.text = "Select Category"
             self.amount_input.text = ""
             self.desc_input.text = ""

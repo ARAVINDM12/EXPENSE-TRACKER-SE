@@ -51,7 +51,7 @@ class BudgetsScreen(Screen):
             self.show_popup("error", "invalid amount")
         
         self.budget_amount_input.text = ""
-        self.budget_type_spinner.text = "Range"
+        self.budget_type_spinner.text = "Select Range"
         self.budget_category_spinner.text = "Category"
 
 
