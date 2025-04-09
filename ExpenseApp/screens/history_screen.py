@@ -68,8 +68,7 @@ class HistoryScreen(Screen):
                 label = Label(text=header, bold=True, size_hint_y=None, height=30, color=(1, 1, 1, 1),halign="left",valign="middle")
                 self.history_list.add_widget(label)
 
-            conn = sqlite3.connect("expenses.db")
-            cursor = conn.cursor()
+            
             cursor.execute("SELECT id, date, time, category, amount, description, expense_type FROM expenses ORDER BY date DESC, time DESC")
             records = cursor.fetchall()
 
@@ -134,7 +133,7 @@ class HistoryScreen(Screen):
             self.total_income_label.text = f"TOTAL INCOME: ₹{total_income:.2f}"
             self.net_label.text = f"NET: ₹{net:.2f}"
 
-            conn.close()
+            #conn.close()
 
             if not records:
                 no_data_label = Label(text="No history found.", font_size=18, color=(1, 1, 1, 1), size_hint_y=None, height=30)
@@ -143,7 +142,9 @@ class HistoryScreen(Screen):
                     self.history_list.add_widget(Label(text=""))
 
             self.history_list.height = self.history_list.minimum_height
-            self.history_list.parent.scroll_y = 1
+            if self.history_list.parent:
+                self.history_list.parent.scroll_y = 1
+
 
         except Exception as e:
             print(f"Error loading history: {e}")

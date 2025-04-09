@@ -46,7 +46,7 @@ class ViewBudgetsScreen(Screen):
                     self.budgets_list.add_widget(label)
 
                 delete_button = Button(text="X", size_hint_y=None, height=30, background_color=(0, 0, 0, 1))
-                delete_button.bind(on_press=lambda instance, budget_id=budget_id: self.delete_budget(budget_id)) #lambda function to pass budget id
+                delete_button.bind(on_press=lambda instance, budget_id=budget_id: self.confirm_delete(budget_id))
                 self.budgets_list.add_widget(delete_button)
 
             self.budgets_list.height = self.budgets_list.minimum_height
@@ -57,13 +57,30 @@ class ViewBudgetsScreen(Screen):
 
     def delete_budget(self, budget_id):
         try:
-            conn = sqlite3.connect("expenses.db")
-            cursor = conn.cursor()
+        
             cursor.execute("DELETE FROM budgets WHERE id = ?", (budget_id,))
             conn.commit()
             self.load_budgets() #reload budgets after deletion
         except Exception as e:
             print(f"Error deleting budget: {e}")
+
+    def confirm_delete(self, budget_id):
+        content = BoxLayout(orientation='vertical')
+        content.add_widget(Label(text="Are you sure you want to delete this budget?"))
+        buttons = BoxLayout(size_hint_y=None, height=40)
+
+        yes_button = Button(text='Yes')
+        no_button = Button(text='No')
+        buttons.add_widget(yes_button)
+        buttons.add_widget(no_button)
+        content.add_widget(buttons)
+
+        popup = Popup(title="Confirm Deletion", content=content, size_hint=(None, None), size=(500, 200))
+        
+        yes_button.bind(on_press=lambda *args: (self.delete_budget(budget_id), popup.dismiss()))
+        no_button.bind(on_press=popup.dismiss)
+        popup.open()
+
 
     def go_back(self, instance):
         self.manager.current = "main"

@@ -79,9 +79,9 @@ class ReportsScreen(Screen):
         self.add_widget(main_layout)
 
     
-        def on_enter(self):
-            # Generate the default report when the screen is entered
-            self.generate_reports(None)
+    def on_enter(self):
+        # Generate the default report when the screen is entered
+        self.generate_reports(None)
 
 
     def on_report_type_change(self, spinner, text):
@@ -219,7 +219,12 @@ class ReportsScreen(Screen):
             end_date = datetime.date.today().strftime("%Y-%m-%d")
         elif report_type == "Custom":
             if not start_date or not end_date:
-                return None
+                popup = Popup(title="Invalid Input",
+                            content=Label(text="Please enter both start and end dates."),
+                            size_hint=(0.6, 0.3))
+                popup.open()
+                return
+
 
         cursor.execute(query, (start_date, end_date))
         data = cursor.fetchall()
@@ -264,9 +269,16 @@ class ReportsScreen(Screen):
         elif report_type == "Yearly":
             start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
             end_date = datetime.date.today().strftime("%Y-%m-%d")
+        
         elif report_type == "Custom":
             start_date = self.start_date_input.text
             end_date = self.end_date_input.text
+            if not start_date or not end_date:
+                popup = Popup(title="Invalid Input",
+                            content=Label(text="Please enter both start and end dates."),
+                            size_hint=(0.6, 0.3))
+                popup.open()
+                return
         try:
             conn = sqlite3.connect("expenses.db")
             cursor = conn.cursor()
@@ -335,6 +347,12 @@ class ReportsScreen(Screen):
         elif report_type == "Custom":
             start_date = self.start_date_input.text
             end_date = self.end_date_input.text
+            if not start_date or not end_date:
+                popup = Popup(title="Invalid Input",
+                            content=Label(text="Please enter both start and end dates."),
+                            size_hint=(0.6, 0.3))
+                popup.open()
+                return
         data = self.fetch_expense_data(report_type, start_date, end_date)
 
         if data:
@@ -371,6 +389,9 @@ class ReportsScreen(Screen):
             bar_chart_path = "bar_chart.png"
             pie_chart.savefig(pie_chart_path)
             bar_chart.savefig(bar_chart_path)
+
+            pie_chart.clf()
+            bar_chart.clf()
 
             pdf.image(pie_chart_path, x=10, y=150, w=100)
             pdf.image(bar_chart_path, x=110, y=150, w=100)
