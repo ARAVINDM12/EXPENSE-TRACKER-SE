@@ -26,3 +26,10 @@ from kivy.uix.dropdown import DropDown
 from dateutil.relativedelta import relativedelta
 from kivy.clock import Clock
 from kivy.uix.floatlayout import FloatLayout
+import os
+import matplotlib.ticker as mtick
+from matplotlib.table import Table
+from kivy.graphics import Color, Rectangle, Line
+from matplotlib.gridspec import GridSpec
+
+
