@@ -92,6 +92,9 @@ class ReportsScreen(Screen):
             self.start_date_input.disabled = True
             self.end_date_input.disabled = True
 
+    
+
+
     def generate_reports(self, instance):
         self.chart_container.clear_widgets()
         self.summary_layout.clear_widgets()
@@ -109,62 +112,95 @@ class ReportsScreen(Screen):
             pie_summary = self.generate_pie_summary(data)
             bar_summary = self.generate_bar_summary(data)
 
-            # Layout for Summary Boxes
-            summaries_box = BoxLayout(orientation='horizontal', spacing=00, padding=(10, 00, 10, 0))
 
-            # Pie Chart Summary Grid
-            pie_grid = GridLayout(cols=1, spacing=0, size_hint_x=0.5, padding=(10, 0))
+            summaries_box = BoxLayout(orientation='horizontal', spacing=0, padding=(10, 0, 10, 0))
 
-            # Bar Chart Summary Grid
-            bar_grid = GridLayout(cols=1, spacing=0, size_hint_x=0.5, padding=(10, 0))
+            # Pie Summary Grid
+            pie_grid = GridLayout(cols=1, spacing=5, size_hint_x=0.5, padding=(10, 0))
 
-            # Pie Chart Summary Title
-            pie_label = Label(text="[b][size=20]Pie Chart Summary[/size][/b]", markup=True, halign='center', size_hint_y=None, height=40)
+            pie_label = Label(
+                text="[b][size=20]Pie Chart Summary[/size][/b]",
+                markup=True,
+                halign='left',
+                size_hint_y=None,
+                height=40
+            )
+            pie_label.bind(size=lambda lbl, s: setattr(lbl, 'text_size', s))
             pie_grid.add_widget(pie_label)
 
-            # Horizontal Divider
-            pie_grid.add_widget(Label(text="--------------------------------------", bold=True, size_hint_y=None, height=20))
+            divider = Label(text="-----------------------------------------------", halign='left', size_hint_y=None, height=20)
+            divider.bind(size=lambda lbl, s: setattr(lbl, 'text_size', s))
+            pie_grid.add_widget(divider)
 
-            for line in pie_summary.split('\n'):
+            for line in pie_summary.strip().split('\n'):
                 if line:
-                    category, value_percentage = line.split(': ', 1) if ': ' in line else ("", line)
-                    label = Label(text=f"[b]{category}:[/b] {value_percentage}", markup=True, halign='left', valign='middle', size_hint_y=None, height=30)
+                    category, value = line.split(': ', 1) if ': ' in line else ("", line)
+                    label = Label(
+                        text=f"[b]{category}:[/b] {value}",
+                        markup=True,
+                        halign='left',
+                        valign='middle',
+                        size_hint_y=None,
+                        height=30
+                    )
+                    label.bind(size=lambda lbl, s: setattr(lbl, 'text_size', s))
                     pie_grid.add_widget(label)
 
-            # Bar Chart Summary Title
-            bar_label = Label(text="[b][size=20]Bar Chart Summary[/size][/b]", markup=True, halign='center', size_hint_y=None, height=40)
+            # Bar Summary Grid
+            bar_grid = GridLayout(cols=1, spacing=5, size_hint_x=0.5, padding=(10, 0))
+
+            bar_label = Label(
+                text="[b][size=20]Bar Chart Summary[/size][/b]",
+                markup=True,
+                halign='left',
+                size_hint_y=None,
+                height=40
+            )
+            bar_label.bind(size=lambda lbl, s: setattr(lbl, 'text_size', s))
             bar_grid.add_widget(bar_label)
 
-            # Horizontal Divider
-            bar_grid.add_widget(Label(text="--------------------------------------", bold=True, size_hint_y=None, height=20))
+            divider = Label(text="----------------------------------------", halign='left', size_hint_y=None, height=20)
+            divider.bind(size=lambda lbl, s: setattr(lbl, 'text_size', s))
+            bar_grid.add_widget(divider)
 
-            for line in bar_summary.split('\n'):
-                if line.strip():  # Ensure line is not empty
+            for line in bar_summary.strip().split('\n'):
+                if line.strip():
                     if ': ' in line:
-                        category, value_percentage = line.split(': ', 1)
-                        label_text = f"[b]{category}:[/b] {value_percentage}"
+                        category, value = line.split(': ', 1)
+                        label_text = f"[b]{category}:[/b] {value}"
                     else:
-                        label_text = f"[b]{line}[/b]"  # Display without extra colon
-                    
-                    label = Label(text=label_text, markup=True, halign='left', valign='middle', size_hint_y=None, height=30)
+                        label_text = f"[b]{line}[/b]"
+
+                    label = Label(
+                        text=label_text,
+                        markup=True,
+                        halign='left',
+                        valign='middle',
+                        size_hint_y=None,
+                        height=30
+                    )
+                    label.bind(size=lambda lbl, s: setattr(lbl, 'text_size', s))
                     bar_grid.add_widget(label)
 
-
-            # Add Grids to the Summary Box
+            # Add both summaries to horizontal layout
             summaries_box.add_widget(pie_grid)
             summaries_box.add_widget(bar_grid)
 
-            # Add Spacing & Summaries to Layout
+            # Add summary to layout with spacer
             spacer = Label(size_hint_y=None, height=40)
             self.summary_layout.add_widget(spacer)
             self.summary_layout.add_widget(summaries_box)
-
-            # Adjust height based on content
             self.summary_layout.height = self.summary_layout.minimum_height
 
         else:
-            popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
+            popup = Popup(
+                title="No Data",
+                content=Label(text="No expenses found for the selected period."),
+                size_hint=(0.6, 0.3)
+            )
             popup.open()
+            
+
 
     def generate_pie_summary(self, data):
         if not data:
@@ -180,19 +216,57 @@ class ReportsScreen(Screen):
 
         return f"{category_summaries}"
 
-    def generate_bar_summary(self, data):
-        if not data:
-            return "No bar chart data available."
+   
 
-        total_expenses = sum(amount for _, amount in data)
-        income = total_expenses * 1.2
-        expense = total_expenses
+    def generate_bar_summary(self,data):
+        conn = sqlite3.connect("expenses.db")
+        cursor = conn.cursor()
+        report_type = self.report_type.text
+        if report_type == "Daily":
+            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Weekly":
+            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Monthly":
+            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        elif report_type == "Yearly":
+            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
+            end_date = datetime.date.today().strftime("%Y-%m-%d")
+        
+        elif report_type == "Custom":
+            start_date = self.start_date_input.text
+            end_date = self.end_date_input.text
+            if not start_date or not end_date:
+                popup = Popup(title="Invalid Input",
+                            content=Label(text="Please enter both start and end dates."),
+                            size_hint=(0.6, 0.3))
+                popup.open()
+                return
+        # Fetch total income
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Income' AND date BETWEEN ? AND ?", (start_date, end_date))
+        income_result = cursor.fetchone()
+        total_income = income_result[0] if income_result[0] else 0
 
-        income_percentage = (income / (income + expense)) * 100
-        expense_percentage = (expense / (income + expense)) * 100
+        # Fetch total expense
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Expense' AND date BETWEEN ? AND ?", (start_date, end_date))
+        expense_result = cursor.fetchone()
+        total_expense = expense_result[0] if expense_result[0] else 0
 
-        return f"Total Income: {income:.2f} ({income_percentage:.2f}%)\nTotal Expense: {expense:.2f} ({expense_percentage:.2f}%)"
+        conn.close()
 
+        total = total_income + total_expense
+
+        if total == 0:
+            return "No income or expenses to summarize."
+
+        income_percentage = (total_income / total) * 100
+        expense_percentage = (total_expense / total) * 100
+
+        return (
+            f"Total Income: {total_income:.2f} ({income_percentage:.2f}%)\n"
+            f"Total Expense: {total_expense:.2f} ({expense_percentage:.2f}%)"
+        )
 
 
     
@@ -234,25 +308,86 @@ class ReportsScreen(Screen):
     def create_charts(self, data):
         categories, values = zip(*data) if data else ([], [])
 
-        # Pie Chart with Black Background and White Text
-        fig1, ax1 = plt.subplots(figsize=(4, 4))
-        ax1.pie(values, labels=categories, autopct='%1.1f%%', startangle=140, textprops={'color': 'white'})  # White text
-        ax1.set_title("Category-wise Expense Breakdown", color='white')  # White title
-        ax1.set_facecolor('#262626')  # Black background
-        fig1.patch.set_facecolor('#262626')  # Black figure background
+        # --- Get real income and expense values ---
+        conn = sqlite3.connect("expenses.db")
+        cursor = conn.cursor()
 
-        # Bar Chart with Black Background and White Text
-        fig2, ax2 = plt.subplots()
-        ax2.bar(["Total Income", "Total Expense"], [sum(values) * 1.2, sum(values)], color=["green", "red"])
-        ax2.set_title("Total Income vs Expense", color='white')  # White title
-        ax2.set_facecolor('#262626')  # Black background
-        fig2.patch.set_facecolor('#262626')  # Black figure background
+        report_type = self.report_type.text
+        today = datetime.date.today()
 
-        # Set tick and axis label colors to white
+        if report_type == "Daily":
+            start_date = end_date = today.strftime("%Y-%m-%d")
+        elif report_type == "Weekly":
+            start_date = (today - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        elif report_type == "Monthly":
+            start_date = today.replace(day=1).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        elif report_type == "Yearly":
+            start_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        elif report_type == "Custom":
+            start_date = self.start_date_input.text
+            end_date = self.end_date_input.text
+            if not start_date or not end_date:
+                popup = Popup(title="Invalid Input",
+                            content=Label(text="Please enter both start and end dates."),
+                            size_hint=(0.6, 0.3))
+                popup.open()
+                return
+
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Income' AND date BETWEEN ? AND ?", (start_date, end_date))
+        total_income = cursor.fetchone()[0] or 0
+
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Expense' AND date BETWEEN ? AND ?", (start_date, end_date))
+        total_expense = cursor.fetchone()[0] or 0
+
+        conn.close()
+
+        # --- Pie Chart ---
+        fig1, ax1 = plt.subplots(figsize=(5, 5))
+        explode = [0.05] * len(values)  # small explosion for all slices
+
+        colors = plt.cm.Set3.colors if len(values) <= 12 else plt.cm.tab20.colors
+
+        wedges, texts, autotexts = ax1.pie(
+            values, labels=categories, autopct='%1.1f%%',
+            startangle=140, explode=explode, colors=colors,
+            textprops={'color': 'white', 'fontsize': 10}
+        )
+
+        ax1.set_title("Category-wise Expense Breakdown", color='white', fontsize=14, pad=15)
+        ax1.set_facecolor('#262626')
+        fig1.patch.set_facecolor('#262626')
+
+        # --- Bar Chart ---
+        fig2, ax2 = plt.subplots(figsize=(6, 4))
+        bars = ax2.bar(
+            ["Total Income", "Total Expense"],
+            [total_income, total_expense],
+            color=["#00e676", "#ff1744"],
+            edgecolor='white',
+            width=0.4
+        )
+
+        # Add value labels
+        for bar in bars:
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width() / 2, height + max(total_income, total_expense) * 0.02,
+                    f'{height:.2f}', ha='center', va='bottom', color='white', fontsize=10)
+
+        ax2.set_title("Total Income vs Expense", color='white', fontsize=14, pad=15)
+        ax2.set_facecolor('#262626')
+        fig2.patch.set_facecolor('#262626')
+
         ax2.tick_params(axis='x', colors='white')
         ax2.tick_params(axis='y', colors='white')
         ax2.xaxis.label.set_color('white')
         ax2.yaxis.label.set_color('white')
+        ax2.spines['bottom'].set_color('white')
+        ax2.spines['left'].set_color('white')
+
+        ax2.grid(True, which='major', axis='y', linestyle='--', alpha=0.4)
 
         return fig1, fig2
 
@@ -331,82 +466,124 @@ class ReportsScreen(Screen):
             popup.open() 
 
 
+
+
     def export_pdf(self, instance):
         report_type = self.report_type.text
+        today = datetime.date.today()
+
+        # Determine date range
         if report_type == "Daily":
-            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
+            start_date = end_date = today.strftime("%Y-%m-%d")
         elif report_type == "Weekly":
-            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
+            start_date = (today - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
         elif report_type == "Monthly":
-            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
+            start_date = today.replace(day=1).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
         elif report_type == "Yearly":
-            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
+            start_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
         elif report_type == "Custom":
             start_date = self.start_date_input.text
             end_date = self.end_date_input.text
             if not start_date or not end_date:
-                popup = Popup(title="Invalid Input",
-                            content=Label(text="Please enter both start and end dates."),
-                            size_hint=(0.6, 0.3))
-                popup.open()
+                Popup(title="Invalid Input",
+                    content=Label(text="Please enter both start and end dates."),
+                    size_hint=(0.6, 0.3)).open()
                 return
+
+        # Get data
         data = self.fetch_expense_data(report_type, start_date, end_date)
 
-        if data:
-            # 1. Create a PDF object
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial","B",size=12)
+        conn = sqlite3.connect("expenses.db")
+        cursor = conn.cursor()
 
-            # 2. Add title
-            pdf.cell(200, 10, txt=f"Expense Report ({report_type})", ln=True, align="C")
-            pdf.cell(200, 10, txt=f"From {start_date} to {end_date}", ln=True, align="C")
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Income' AND date BETWEEN ? AND ?", (start_date, end_date))
+        total_income = cursor.fetchone()[0] or 0
 
-            # 3. Add summary data to the PDF
-            pie_summary = self.generate_pie_summary(data)
-            bar_summary = self.generate_bar_summary(data)
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Expense' AND date BETWEEN ? AND ?", (start_date, end_date))
+        total_expense = cursor.fetchone()[0] or 0
+        conn.close()
 
-            pdf.ln(10)  # Add some space
+        if not (data or total_income or total_expense):
+            Popup(title="No Data",
+                content=Label(text="No data found for the selected period."),
+                size_hint=(0.6, 0.3)).open()
+            return
 
-            # Add Pie Chart Summary
-            pdf.cell(200, 10, txt="Pie Chart Summary", ln=True, align="L")
-            for line in pie_summary.split('\n'):
-                pdf.cell(200, 10, txt=line, ln=True, align="L")
+        # Prepare charts
+        pie_chart, bar_chart = self.create_charts(data)
+        pie_path = "pie_chart.png"
+        bar_path = "bar_chart.png"
+        pie_chart.savefig(pie_path, bbox_inches='tight')
+        bar_chart.savefig(bar_path, bbox_inches='tight')
+        pie_chart.clf()
+        bar_chart.clf()
 
-            pdf.ln(10)
+        # Create PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
 
-            # Add Bar Chart Summary
-            pdf.cell(200, 10, txt="Bar Chart Summary", ln=True, align="L")
-            for line in bar_summary.split('\n'):
-                pdf.cell(200, 10, txt=line, ln=True, align="L")
+        # Add border
+        pdf.set_draw_color(0, 0, 0)
+        pdf.rect(5, 5, 200, 287)
 
-            # 4. Add charts to the PDF
-            pie_chart, bar_chart = self.create_charts(data)
-            pie_chart_path = "pie_chart.png"
-            bar_chart_path = "bar_chart.png"
-            pie_chart.savefig(pie_chart_path)
-            bar_chart.savefig(bar_chart_path)
+        # Title section
+        pdf.set_font("Arial", "B", 20)
+        pdf.cell(0, 15, "Expense Report", ln=True, align="C")
+        pdf.set_font("Arial", "", 12)
+        pdf.cell(0, 10, f"{report_type} | {start_date} to {end_date}", ln=True, align="C")
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(8)
 
-            pie_chart.clf()
-            bar_chart.clf()
+        # Pie chart summary
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "Category-wise Expenses:", ln=True)
+        pdf.set_font("Arial", "", 12)
+        pie_summary = self.generate_pie_summary(data)
+        for line in pie_summary.strip().split('\n'):
+            pdf.cell(0, 8, line.strip(), ln=True)
 
-            pdf.image(pie_chart_path, x=10, y=150, w=100)
-            pdf.image(bar_chart_path, x=110, y=150, w=100)
+        pdf.ln(5)
 
-            # 5. Save the PDF
-            pdf_filename = f"expense_report_{report_type}_{start_date}_{end_date}.pdf"
-            pdf.output(pdf_filename)
+        # Income vs Expense
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "Income vs Expense Summary:", ln=True)
+        pdf.set_font("Arial", "", 12)
+        total = total_income + total_expense
+        income_percent = (total_income / total) * 100 if total else 0
+        expense_percent = (total_expense / total) * 100 if total else 0
+        pdf.cell(0, 8, f"Total Income  : Rs. {total_income:.2f} ({income_percent:.2f}%)", ln=True)
+        pdf.cell(0, 8, f"Total Expense : Rs. {total_expense:.2f} ({expense_percent:.2f}%)", ln=True)
 
-            # (Optional) Display a success message or open the file
-            popup = Popup(title="Success", content=Label(text=f"Report exported to {pdf_filename}"), size_hint=(0.6, 0.3))
-            popup.open()
-        else:
-            # Show "No Data" popup (you already have this part)
-            popup = Popup(title="No Data", content=Label(text="No expenses found for the selected period."), size_hint=(0.6, 0.3))
-            popup.open()
+        pdf.ln(10)
+
+        # Charts
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "Charts:", ln=True)
+        y_start = pdf.get_y()
+        pdf.image(pie_path, x=15, y=y_start + 5, w=85)
+        pdf.image(bar_path, x=110, y=y_start + 5, w=85)
+        pdf.set_y(y_start + 95)
+
+        # Footer
+        # Safe footer placement (ensure it doesn’t trigger a new page)
+        # Footer at the bottom inside the border
+        pdf.set_y(267)  # 297 (page height) - 10 (bottom margin inside border)
+        pdf.set_font("Arial", "I", 10)
+        pdf.set_text_color(100)
+        pdf.cell(0, 10, f"Generated by Expense Tracker on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 0, 'C')
+                # Save PDF
+        filename = f"expense_report_{report_type}_{start_date}_{end_date}.pdf"
+        pdf.output(filename)
+
+        Popup(title="Success", content=Label(text=f"Report exported to {filename}"),
+            size_hint=(0.6, 0.3)).open()
+
+
+
 
     def go_back(self, instance):
         self.manager.current = 'main'
