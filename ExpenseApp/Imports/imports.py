@@ -31,5 +31,9 @@ import matplotlib.ticker as mtick
 from matplotlib.table import Table
 from kivy.graphics import Color, Rectangle, Line
 from matplotlib.gridspec import GridSpec
+import smtplib
+from email.message import EmailMessage
+from kivy.uix.textinput import TextInput
+from kivy.uix.boxlayout import BoxLayout
 
 
