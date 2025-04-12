@@ -1,6 +1,7 @@
 from Imports.imports import *
 from UI.ui_components import *
 from database.db import conn, cursor
+from database.db import *
 
 class HistoryScreen(Screen):
     def __init__(self, **kwargs):
@@ -69,8 +70,8 @@ class HistoryScreen(Screen):
                 self.history_list.add_widget(label)
 
             
-            cursor.execute("SELECT id, date, time, category, amount, description, expense_type FROM expenses ORDER BY date DESC, time DESC")
-            records = cursor.fetchall()
+            
+            records = get_all_expenses()
 
             records_by_date = defaultdict(list)
             for row in records:
@@ -120,11 +121,9 @@ class HistoryScreen(Screen):
 
 
             # Calculate total expense, total income, and net
-            cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type = 'Expense'")
-            total_expense = cursor.fetchone()[0] or 0.0
-
-            cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type = 'Income'")
-            total_income = cursor.fetchone()[0] or 0.0
+          
+            total_expense = get_total_expense_amount()
+            total_income = get_total_income_amount()
 
             net = total_income - total_expense
 
@@ -161,8 +160,7 @@ class HistoryScreen(Screen):
 
         if update_mode:
             # Retrieve expense details and populate main screen
-            cursor.execute("SELECT date, time, category, amount, description FROM expenses WHERE id=?", (expense_id,))
-            record = cursor.fetchone()
+            record = get_expense_by_id(expense_id)
 
             if record:
                 date, time, category, amount, description = record
@@ -201,8 +199,7 @@ class HistoryScreen(Screen):
             return
 
         try:
-            cursor.execute("DELETE FROM expenses WHERE id=?", (self.selected_expense_id,))
-            conn.commit()
+            delete_expense_by_id(self.selected_expense_id)
             print("Expense deleted successfully!")
             self.show_popup("Expense Deleted", "Expense deleted successfully!")
 
@@ -224,8 +221,7 @@ class HistoryScreen(Screen):
             print("No expense selected!")
             return
 
-        cursor.execute("SELECT date, time, category, amount, description FROM expenses WHERE id=?", (self.selected_expense_id,))
-        record = cursor.fetchone()
+        record = get_expense_by_id(self.selected_expense_id)
         if record:
             date, time, category, amount, description = record
             main_screen = self.manager.get_screen("main").children[0]  # Get the ExpenseTracker instance

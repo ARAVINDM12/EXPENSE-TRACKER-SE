@@ -10,3 +10,5 @@ from App.app import *  # This might contain your main application logic
 
 if __name__ == '__main__':
     ExpenseApp().run()
+
+    

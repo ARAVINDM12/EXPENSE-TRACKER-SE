@@ -1,6 +1,7 @@
 from Imports.imports import *
 from UI.ui_components import *
 from database.db import conn, cursor
+from database.db import *
 
 class ViewBudgetsScreen(Screen):
     def __init__(self, **kwargs):
@@ -32,10 +33,9 @@ class ViewBudgetsScreen(Screen):
                 label = Label(text=header, bold=True, size_hint_y=None, height=30, color=(1, 1, 1, 1))
                 self.budgets_list.add_widget(label)
 
-            conn = sqlite3.connect("expenses.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, budget_type, category, amount FROM budgets") #added id to select
-            records = cursor.fetchall()
+            #conn = sqlite3.connect("expenses.db")
+            #cursor = conn.cursor()
+            records = get_all_budgets()
 
             for row in records:
                 budget_id, budget_type, category, amount = row #added budget_id
@@ -58,8 +58,7 @@ class ViewBudgetsScreen(Screen):
     def delete_budget(self, budget_id):
         try:
         
-            cursor.execute("DELETE FROM budgets WHERE id = ?", (budget_id,))
-            conn.commit()
+            delete_budget_by_id(budget_id)
             self.load_budgets() #reload budgets after deletion
         except Exception as e:
             print(f"Error deleting budget: {e}")

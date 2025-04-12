@@ -37,7 +37,6 @@ from kivy.core.window import Window
 class SplashApp(App):
     def build(self):
         self.layout = FloatLayout()
-
         # For detecting base path
         if getattr(sys, 'frozen', False):
             BASE_DIR = sys._MEIPASS
