@@ -22,7 +22,7 @@ class ExpenseTracker(BoxLayout):
         current_ampm = now.strftime("%p")
 
         # Header
-        self.add_widget(StylishLabel(text="CASHANOVA"))
+        self.add_widget(StylishLabel(text="EXPENSE TRACKER"))
 
         # Input Layout
         input_layout = GridLayout(cols=2, spacing=15, size_hint_y=None, height=350)
@@ -309,7 +309,7 @@ class ExpenseTracker(BoxLayout):
         try:
             amount = float(amount)  # Convert amount to float
 
-            update_expense(self.selected_expense_id, date, time, category, amount, description)
+            update_expense(date, time, category, amount, description,self.selected_expense_id)
             print("Expense updated successfully!")
 
             self.selected_expense_id = None  # Clear selection

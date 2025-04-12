@@ -150,15 +150,7 @@ def get_budget_amount(budget_type, category):
     return result[0] if result else 0.0
 
 # Function to update an existing expense entry by ID
-def update_expense(expense_id, date, time, category, amount, description):
 
-    cursor.execute("""
-        UPDATE expenses
-        SET date = ?, time = ?, category = ?, amount = ?, description = ?
-        WHERE id = ?
-    """, (date, time, category, amount, description, expense_id))
-
-    conn.commit()
     
 
 # Function to insert a new budget entry
