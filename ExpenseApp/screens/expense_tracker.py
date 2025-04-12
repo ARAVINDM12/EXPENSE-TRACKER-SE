@@ -1,6 +1,7 @@
 from Imports.imports import *
 from UI.ui_components import *
 from database.db import conn, cursor
+from database.db import *
 
 class ExpenseTracker(BoxLayout):
     def __init__(self, screen_manager, cursor, conn, **kwargs): # Added cursor and conn
@@ -21,7 +22,7 @@ class ExpenseTracker(BoxLayout):
         current_ampm = now.strftime("%p")
 
         # Header
-        self.add_widget(StylishLabel(text="EXPENSE TRACKER"))
+        self.add_widget(StylishLabel(text="CASHANOVA"))
 
         # Input Layout
         input_layout = GridLayout(cols=2, spacing=15, size_hint_y=None, height=350)
@@ -165,27 +166,19 @@ class ExpenseTracker(BoxLayout):
     def check_budget_type(self, cursor, start_date, end_date, budget_type, category, amount):
         assert isinstance(amount, float), "Amount should be a float in check_budget_type"
 
-        # Fetch the budget amount for the given category
-        cursor.execute("SELECT amount FROM budgets WHERE budget_type = ? AND category = ?", (budget_type, category))
-        budget_result = cursor.fetchone()
-        
+        # Fetch the budget amount
+        budget_result = get_budget_amount(budget_type, category)
+
         if budget_result:
-            budget_amount = float(budget_result[0])
+            budget_amount = float(budget_result)
 
-            # Fetch total spent BEFORE adding the new expense
-            if category == "All":
-                cursor.execute("SELECT SUM(amount) FROM expenses WHERE date BETWEEN ? AND ?", (str(start_date), str(end_date)))
-            else:
-                cursor.execute("SELECT SUM(amount) FROM expenses WHERE date BETWEEN ? AND ? AND category = ?", (str(start_date), str(end_date), category))
+            # Fetch total spent before inserting new expense
+            total_spent = get_total_spent(cursor, start_date, end_date, category)
 
-            total_spent_result = cursor.fetchone()
-            total_spent = total_spent_result[0] if total_spent_result and total_spent_result[0] else 0.0
+            # Add the new amount to simulate post-insert total
+            total_spent += amount  
 
-            # ✅ Fix: Avoid double counting by checking if the amount is already included
-            if total_spent < amount:
-                total_spent += amount  
-
-            # Calculate exceeded amount correctly
+            # Compare and show popup if overspent
             if total_spent > budget_amount:
                 exceeded_by = total_spent - budget_amount
                 self.show_popup("Overspending", 
@@ -193,6 +186,7 @@ class ExpenseTracker(BoxLayout):
                     f"Total Spent: ₹{total_spent:.2f}\n"
                     f"Budget: ₹{budget_amount:.2f}"
                 )
+
 
 
 
@@ -226,15 +220,11 @@ class ExpenseTracker(BoxLayout):
 
         try:
             if hasattr(self, "selected_expense_id") and self.selected_expense_id:
-                self.cursor.execute("UPDATE expenses SET date=?, time=?, category=?, amount=?, description=? WHERE id=?",
-                                    (date, time, category, amount, description, self.selected_expense_id))
-                self.conn.commit()
+                update_expense(date, time, category, amount, description, self.selected_expense_id)
                 self.show_popup("Expense Updated", "Expense updated successfully!")
                 self.selected_expense_id = None
             else:
-                self.cursor.execute("INSERT INTO expenses (date, time, category, amount, description, expense_type) VALUES (?, ?, ?, ?, ?, ?)",
-                                    (date, time, category, amount, description, expense_type))
-                self.conn.commit()
+                insert_expense(date, time, category, amount, description, expense_type)
                 self.show_popup(f"{expense_type} Added", f"{expense_type} added successfully!")
             
             self.category_spinner.text = "Select Category"
@@ -319,13 +309,7 @@ class ExpenseTracker(BoxLayout):
         try:
             amount = float(amount)  # Convert amount to float
 
-            cursor.execute("""
-                UPDATE expenses 
-                SET date=?, time=?, category=?, amount=?, description=? 
-                WHERE id=?
-            """, (date, time, category, amount, description, self.selected_expense_id))
-            conn.commit()
-
+            update_expense(self.selected_expense_id, date, time, category, amount, description)
             print("Expense updated successfully!")
 
             self.selected_expense_id = None  # Clear selection
@@ -354,8 +338,7 @@ class ExpenseTracker(BoxLayout):
             return
         
         try:
-            cursor.execute("DELETE FROM expenses WHERE id=?", (self.selected_expense_id,))
-            conn.commit()
+            delete_expense_by_id(self.selected_expense_id)
             print("Expense deleted successfully!")
             self.selected_expense_id = None
         except Exception as e:

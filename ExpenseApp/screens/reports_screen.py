@@ -1,6 +1,7 @@
 from Imports.imports import *
 from UI.ui_components import *
 from database.db import conn, cursor
+from database.db import *
 
 class PDF(FPDF):
     def footer(self):
@@ -224,12 +225,7 @@ class ReportsScreen(Screen):
 
         return f"{category_summaries}"
 
-   
-
-    def generate_bar_summary(self,data):
-        conn = sqlite3.connect("expenses.db")
-        cursor = conn.cursor()
-        report_type = self.report_type.text
+    def get_date_range(self, report_type):
         if report_type == "Daily":
             start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
         elif report_type == "Weekly":
@@ -241,7 +237,6 @@ class ReportsScreen(Screen):
         elif report_type == "Yearly":
             start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
             end_date = datetime.date.today().strftime("%Y-%m-%d")
-        
         elif report_type == "Custom":
             start_date = self.start_date_input.text
             end_date = self.end_date_input.text
@@ -250,18 +245,23 @@ class ReportsScreen(Screen):
                             content=Label(text="Please enter both start and end dates."),
                             size_hint=(0.6, 0.3))
                 popup.open()
-                return
-        # Fetch total income
-        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Income' AND date BETWEEN ? AND ?", (start_date, end_date))
-        income_result = cursor.fetchone()
-        total_income = income_result[0] if income_result[0] else 0
+                return None, None  # Return None to indicate error in input
+        return start_date, end_date
 
-        # Fetch total expense
-        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Expense' AND date BETWEEN ? AND ?", (start_date, end_date))
-        expense_result = cursor.fetchone()
-        total_expense = expense_result[0] if expense_result[0] else 0
+    def generate_bar_summary(self,data):
+        #conn = sqlite3.connect("expenses.db")
+        #cursor = conn.cursor()
+        report_type = self.report_type.text
+        start_date, end_date = self.get_date_range(report_type)
+        if start_date is None or end_date is None:
+            return
+        
 
-        conn.close()
+        # Fetch total income and total expense using the new functions
+        total_income = get_total_income(start_date, end_date)
+        total_expense = get_total_expense(start_date, end_date)
+
+        #conn.close()
 
         total = total_income + total_expense
 
@@ -279,78 +279,36 @@ class ReportsScreen(Screen):
 
     
     def fetch_expense_data(self, report_type, start_date, end_date):
-        conn = sqlite3.connect("expenses.db")
-        cursor = conn.cursor()
-        query = """
-        SELECT category, SUM(amount)
-        FROM expenses
-        WHERE date BETWEEN ? AND ?
-        GROUP BY category
-        ORDER BY category ASC
-        """
-        if report_type == "Daily":
-            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Weekly":
-            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Monthly":
-            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Yearly":
-            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Custom":
-            if not start_date or not end_date:
-                popup = Popup(title="Invalid Input",
-                            content=Label(text="Please enter both start and end dates."),
-                            size_hint=(0.6, 0.3))
-                popup.open()
-                return
+        #conn = sqlite3.connect("expenses.db")
+        #cursor = conn.cursor()
+        
+        start_date, end_date = self.get_date_range(report_type)
+        if start_date is None or end_date is None:
+            return
 
-
-        cursor.execute(query, (start_date, end_date))
-        data = cursor.fetchall()
-        conn.close()
+        data = get_expense_summary_by_category(start_date, end_date)
+        #conn.close()
         return data
 
     def create_charts(self, data):
         categories, values = zip(*data) if data else ([], [])
 
         # --- Get real income and expense values ---
-        conn = sqlite3.connect("expenses.db")
-        cursor = conn.cursor()
+        #conn = sqlite3.connect("expenses.db")
+        #cursor = conn.cursor()
 
         report_type = self.report_type.text
         today = datetime.date.today()
 
-        if report_type == "Daily":
-            start_date = end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Weekly":
-            start_date = (today - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
-            end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Monthly":
-            start_date = today.replace(day=1).strftime("%Y-%m-%d")
-            end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Yearly":
-            start_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
-            end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Custom":
-            start_date = self.start_date_input.text
-            end_date = self.end_date_input.text
-            if not start_date or not end_date:
-                popup = Popup(title="Invalid Input",
-                            content=Label(text="Please enter both start and end dates."),
-                            size_hint=(0.6, 0.3))
-                popup.open()
-                return
+        start_date, end_date = self.get_date_range(report_type)
+        if start_date is None or end_date is None:
+            return
 
-        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Income' AND date BETWEEN ? AND ?", (start_date, end_date))
-        total_income = cursor.fetchone()[0] or 0
+        # Fetch total income and total expense using the new functions
+        total_income = get_total_income(start_date, end_date)
+        total_expense = get_total_expense(start_date, end_date)
 
-        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Expense' AND date BETWEEN ? AND ?", (start_date, end_date))
-        total_expense = cursor.fetchone()[0] or 0
-
-        conn.close()
+        #conn.close()
 
         # --- Pie Chart ---
         fig1, ax1 = plt.subplots(figsize=(5, 5))
@@ -401,41 +359,16 @@ class ReportsScreen(Screen):
 
     def export_csv(self, instance):
         report_type = self.report_type.text
-        if report_type == "Daily":
-            start_date = end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Weekly":
-            start_date = (datetime.date.today() - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Monthly":
-            start_date = (datetime.date.today().replace(day=1)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
-        elif report_type == "Yearly":
-            start_date = (datetime.date.today().replace(month=1, day=1)).strftime("%Y-%m-%d")
-            end_date = datetime.date.today().strftime("%Y-%m-%d")
-        
-        elif report_type == "Custom":
-            start_date = self.start_date_input.text
-            end_date = self.end_date_input.text
-            if not start_date or not end_date:
-                popup = Popup(title="Invalid Input",
-                            content=Label(text="Please enter both start and end dates."),
-                            size_hint=(0.6, 0.3))
-                popup.open()
-                return
+        start_date, end_date = self.get_date_range(report_type)
+        if start_date is None or end_date is None:
+            return
         try:
-            conn = sqlite3.connect("expenses.db")
-            cursor = conn.cursor()
+            #conn = sqlite3.connect("expenses.db")
+            #cursor = conn.cursor()
 
             # Fetch all records ordered by date and time (descending)
-            cursor.execute(
-            "SELECT date, time, category, amount, description, expense_type "
-            "FROM expenses "
-            "WHERE date BETWEEN ? AND ? "
-            "ORDER BY date DESC, time DESC",
-            (start_date, end_date), #parameters for the where clause.
-            )
-            records = cursor.fetchall()
-            conn.close()
+            records = get_all_expenses_between_dates(start_date, end_date)
+            #conn.close()
 
             if records:
                 filename = f"expense_report_{report_type}_{start_date}_{end_date}.csv"
@@ -476,43 +409,20 @@ class ReportsScreen(Screen):
         report_type = self.report_type.text
         today = datetime.date.today()
 
-        if report_type == "Daily":
-            start_date = end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Weekly":
-            start_date = (today - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
-            end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Monthly":
-            start_date = today.replace(day=1).strftime("%Y-%m-%d")
-            end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Yearly":
-            start_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
-            end_date = today.strftime("%Y-%m-%d")
-        elif report_type == "Custom":
-            start_date = self.start_date_input.text
-            end_date = self.end_date_input.text
-            if not start_date or not end_date:
-                Popup(title="Invalid Input", content=Label(text="Please enter both start and end dates."), size_hint=(0.6, 0.3)).open()
-                return
+        start_date, end_date = self.get_date_range(report_type)
+        if start_date is None or end_date is None:
+            return
 
         data = self.fetch_expense_data(report_type, start_date, end_date)
 
-        conn = sqlite3.connect("expenses.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Income' AND date BETWEEN ? AND ?", (start_date, end_date))
-        total_income = cursor.fetchone()[0] or 0
+        #conn = sqlite3.connect("expenses.db")
+        #cursor = conn.cursor()
+        # Fetch total income and total expense using the new functions
+        total_income = get_total_income(start_date, end_date)
+        total_expense = get_total_expense(start_date, end_date)
 
-        cursor.execute("SELECT SUM(amount) FROM expenses WHERE expense_type='Expense' AND date BETWEEN ? AND ?", (start_date, end_date))
-        total_expense = cursor.fetchone()[0] or 0
-
-        cursor.execute(
-            "SELECT date, time, category, amount, description, expense_type "
-            "FROM expenses "
-            "WHERE date BETWEEN ? AND ? "
-            "ORDER BY date DESC, time DESC",
-            (start_date, end_date),
-        )
-        records = cursor.fetchall()
-        conn.close()
+        records = get_all_expenses_between_dates(start_date, end_date)
+        #conn.close()
 
         if not (data or total_income or total_expense):
             Popup(title="No Data", content=Label(text="No data found for the selected period."), size_hint=(0.6, 0.3)).open()

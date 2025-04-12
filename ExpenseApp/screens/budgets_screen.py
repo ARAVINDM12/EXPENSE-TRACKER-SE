@@ -1,7 +1,7 @@
 from Imports.imports import *
 from UI.ui_components import *
 from database.db import conn,cursor
-
+from database.db import *
 class BudgetsScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -44,8 +44,7 @@ class BudgetsScreen(Screen):
         amount = self.budget_amount_input.text
         try:
             amount = float(amount)
-            cursor.execute("INSERT INTO budgets (budget_type, category, amount) VALUES (?, ?, ?)", (budget_type, category, amount))
-            conn.commit()
+            insert_budget(budget_type, category, amount)
             self.show_popup("budget added","budget added successfully")
         except:
             self.show_popup("error", "invalid amount")

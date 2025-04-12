@@ -12,7 +12,7 @@ class ExpenseApp(App):
     def build(self):
         try:
             sm = ScreenManager()
-            #sm.add_widget(SplashScreen(name="splash"))  # Load splash screen
+            
             sm.add_widget(Screen(name="main"))
             sm.add_widget(HistoryScreen(name="history"))
             sm.add_widget(BudgetsScreen(name="budgets"))
@@ -21,7 +21,7 @@ class ExpenseApp(App):
             sm.get_screen("main").add_widget(ExpenseTracker(screen_manager=sm, cursor=cursor, conn=conn)) #added cursor and conn
 
             self.conn = conn  # Store the connection for later use
-            #sm.current = "splash"  # Start with splash screen
+            
             return sm
 
         except sqlite3.Error as e:
