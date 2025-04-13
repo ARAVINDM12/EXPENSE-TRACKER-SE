@@ -176,7 +176,7 @@ class ExpenseTracker(BoxLayout):
             total_spent = get_total_spent(cursor, start_date, end_date, category)
 
             # Add the new amount to simulate post-insert total
-            total_spent += amount  
+            #total_spent += amount  
 
             # Compare and show popup if overspent
             if total_spent > budget_amount:

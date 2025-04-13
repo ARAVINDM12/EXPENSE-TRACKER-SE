@@ -1,11 +1,28 @@
 import os
 import sys
-import ctypes
+#import ctypes
 import threading
 import subprocess
+import platform
 
+# 🟢 Platform check before using Windows-only features
+if platform.system() == "Windows":
+    import ctypes
+    user32 = ctypes.windll.user32
+    screen_width = user32.GetSystemMetrics(0)
+    screen_height = user32.GetSystemMetrics(1)
+else:
+    # Default dimensions for Linux/Docker
+    screen_width = 1024
+    screen_height = 768
+
+window_width = 500
+window_height = 400
+
+x = (screen_width - window_width) // 2
+y = (screen_height - window_height) // 2
 # Calculate screen center using ctypes before importing Kivy
-user32 = ctypes.windll.user32
+'''user32 = ctypes.windll.user32
 screen_width = user32.GetSystemMetrics(0)
 screen_height = user32.GetSystemMetrics(1)
 
@@ -13,7 +30,7 @@ window_width = 500
 window_height = 400
 
 x = (screen_width - window_width) // 2
-y = (screen_height - window_height) // 2
+y = (screen_height - window_height) // 2'''
 
 # Set window position before Kivy starts
 os.environ['SDL_VIDEO_WINDOW_POS'] = f"{x},{y}"
