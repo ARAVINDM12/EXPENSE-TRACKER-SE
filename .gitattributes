@@ -1,2 +1,4 @@
 *.py linguist-language=Python
 *.kv linguist-language=Python
+Images/* linguist-vendored
+Icon/* linguist-vendored
