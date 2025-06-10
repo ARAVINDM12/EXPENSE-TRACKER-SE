@@ -1,4 +1,9 @@
-*.py linguist-language=Python
-*.kv linguist-language=Python
-Images/* linguist-vendored
-Icon/* linguist-vendored
+# Ignore build and dist folders
+build/* linguist-vendored
+dist/* linguist-vendored
+
+# Or mark docs as documentation
+docs/* linguist-documentation
+
+# Force Python to be the main language
+*.py linguist-detectable=true
