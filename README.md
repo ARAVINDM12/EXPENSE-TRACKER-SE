@@ -22,7 +22,7 @@ A modern, cross-platform Expense Tracker App built using Python (Kivy) and SQLit
     
     🖥️ Deployed as a standalone .exe using SourceForge for easy offline access and distribution
     
-    🔗 Download EXE: 
+    🔗 Download EXE: https://drive.google.com/file/d/1YO6Z_RDg7rN2TVk8GV2VtsqLctD0Hxzy/view?usp=sharing
 
 
 **📦 Features**
