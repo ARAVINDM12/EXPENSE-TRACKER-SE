@@ -2,6 +2,8 @@
 
 A modern, cross-platform Expense Tracker App built using Python (Kivy) and SQLite3, designed to help users manage their income, expenses, budgets, and financial goals efficiently with real-time insights.
 
+**🔗 Download EXE:  **https://drive.google.com/file/d/1YO6Z_RDg7rN2TVk8GV2VtsqLctD0Hxzy/view?usp=sharing
+
 **🚀 Project Summary**
 
     Created a cross-platform Expense Tracker using Python (Kivy) and SQLite3, featuring full CRUD operations for seamless income and expense management.
@@ -22,7 +24,7 @@ A modern, cross-platform Expense Tracker App built using Python (Kivy) and SQLit
     
     🖥️ Deployed as a standalone .exe using SourceForge for easy offline access and distribution
     
-    🔗 Download EXE: https://drive.google.com/file/d/1YO6Z_RDg7rN2TVk8GV2VtsqLctD0Hxzy/view?usp=sharing
+ 
 
 
 **📦 Features**
